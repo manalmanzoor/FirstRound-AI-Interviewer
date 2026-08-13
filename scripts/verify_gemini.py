@@ -18,8 +18,13 @@ API_KEY = os.environ.get("GEMINI_API_KEY")
 # LiveKit's agents plugin — it rejects send_client_content with a 1007 error
 # after the first model turn, which breaks any multi-turn call. Deliberately
 # pinned to the 2.5 native-audio model instead. Re-verify this before demo day.
+# gemini-2.5-flash / gemini-2.5-flash-lite both 404 on this account ("no
+# longer available to new users") despite still showing up in models.list().
+# Confirmed by an actual generate_content call, not just the model list —
+# the list includes models the account can't actually use. gemini-3.5-flash
+# is the confirmed-working replacement.
 LIVE_MODEL_ID = "gemini-2.5-flash-native-audio-preview-12-2025"
-OFFLINE_MODEL_ID = "gemini-2.5-flash"
+OFFLINE_MODEL_ID = "gemini-3.5-flash"
 
 if not API_KEY:
     print("FAIL: GEMINI_API_KEY not set in .env")

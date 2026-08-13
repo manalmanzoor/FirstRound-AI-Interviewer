@@ -27,8 +27,16 @@ also terminate around 10 minutes regardless — `SessionResumptionConfig`
 (tokens valid 2h) is the mechanism to reconnect without losing context if
 the interview runs long.
 
-**Offline reasoning model:** `gemini-2.5-flash`, Developer API free tier —
-used for JD/resume parsing, gap analysis, question planning, and scoring.
+**Offline reasoning model:** `gemini-2.5-flash` and `gemini-2.5-flash-lite`
+are both dead for this (newly created) account — `generate_content` returns
+404 "no longer available to new users," even though `models.list()` still
+lists them as present. The list endpoint is not a reliable existence check;
+only an actual call proves access. Confirmed working replacement:
+`gemini-3.5-flash` (offline reasoning), with `gemini-3.1-flash-lite` as the
+same-provider fallback if RPM gets tight — same free-tier deal, newer
+generation. This is exactly the "don't trust a remembered/hardcoded model
+name" risk the PRD called out for the Live model, and it turned out to
+apply to the offline model too.
 
 ## Graph (filled in during Phase 3.5–5)
 
