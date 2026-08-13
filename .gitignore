@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+checkpoints.db
+output/*.json
+output/prep/*.json
+output/report.pdf
+*.mp4
+*.mov
+.DS_Store
