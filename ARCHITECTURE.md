@@ -94,11 +94,14 @@ newer package fixes this. Ruled out as *not* the cause: Windows Defender
 real-time scanning (added a project exclusion, no change), Chrome/VS Code
 CPU contention (closed both, no change — though CPU load reads ~100% on
 this box more or less constantly), a VPN or system proxy (none present),
-and a blanket UDP block (raw STUN test to a public server succeeded in
-0.24s). The remaining, most likely explanation given the upstream PR's own
-wording: this specific low-power CPU (quad-core, 1.1GHz, no AVX2) is
-consistently too slow to win the race against a timeout that isn't
-currently configurable from the Python API surface.
+a blanket UDP block (raw STUN test to a public server succeeded in 0.24s),
+and the Windows `ProactorEventLoop` (forced `WindowsSelectorEventLoopPolicy`
+instead — confirmed active via the "Using selector: SelectSelector" log
+line — identical crash, same failure point, ~27s in that run vs. ~19s in
+earlier runs). The remaining, most likely explanation given the upstream
+PR's own wording: this specific low-power CPU (quad-core, 1.1GHz, no
+AVX2) is consistently too slow to win the race against a timeout that
+isn't currently configurable from the Python API surface.
 
 **Practical consequence:** Gemini Live + native barge-in are proven to
 work end-to-end (via `console` mode, no real room). The actual LiveKit
@@ -110,6 +113,8 @@ digging for a workaround/config override, (b) run the agent worker on
 different hardware for just the recorded interview, or (c) wait and see
 if `rust-sdks` merges a fix. Flagged to the user as a serious, real risk
 to the "8+ min continuous video call" requirement, not glossed over.
+
+Minor, unrelated note picked up along the way: `AgentSession(allow_interruptions=..., discard_audio_if_uninterruptible=...)` are both deprecated in this livekit-agents version, replaced by `turn_handling=TurnHandlingOptions(...)`. Left as-is for now since it still works and v2.0 isn't out yet — worth migrating if there's spare time later.
 
 ## Graph (filled in during Phase 3.5–5)
 
