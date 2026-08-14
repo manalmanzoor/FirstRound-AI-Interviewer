@@ -60,15 +60,18 @@ class InterviewerAgent(Agent):
                 # user_input_transcribed events (Phase 7) -- without this,
                 # there's no text form of the candidate's spoken answer to
                 # feed into the graph's Command(resume=...).
-                input_audio_transcription=genai_types.AudioTranscriptionConfig(),
-                # Pin to English. Without this, auto language detection
-                # mis-transcribed two answers in the first real interview
-                # into Arabic and Devanagari script ("هلا", "ऑन द एंड
-                # पॉइंट्स") -- the scorer then had garbage to score for
-                # those turns. The candidate speaks English with a
-                # non-US accent, which is exactly the case auto-detect
-                # gets wrong.
-                language="en-US",
+                #
+                # language_codes lives on AudioTranscriptionConfig itself,
+                # NOT on RealtimeModel's own top-level `language` param
+                # (that one governs the model's own generation/output,
+                # confirmed by checking AudioTranscriptionConfig.model_fields
+                # directly). Setting the wrong one was a real bug: two
+                # answers in the second real interview attempt still came
+                # through in Devanagari and Telugu script despite
+                # `language="en-US"` being set below-turned-out-irrelevant.
+                input_audio_transcription=genai_types.AudioTranscriptionConfig(
+                    language_codes=["en-US"]
+                ),
             ),
         )
 

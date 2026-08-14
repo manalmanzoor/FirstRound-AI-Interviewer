@@ -2,25 +2,37 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>FirstRound -- Lean Join Test</title>
+<title>FirstRound -- Interview</title>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 <style>
-  body { background:#0b0c10; color:#eaeaea; font-family: system-ui, sans-serif; padding: 24px; }
+  body {
+    background: #0b0c10;
+    color: #eaeaea;
+    font-family: system-ui, sans-serif;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+  }
+  .controls { display: flex; flex-direction: column; align-items: center; gap: 6px; }
   input { width: 480px; padding: 6px; margin: 4px 0; background:#1a1c22; color:#eaeaea; border:1px solid #333; }
-  button { padding: 8px 16px; margin-top: 8px; }
-  #log { white-space: pre-wrap; background:#14161c; padding:12px; border-radius:8px; margin-top:16px; font-size: 13px; max-height: 400px; overflow-y: auto; }
+  button { padding: 8px 16px; }
+  canvas { background: #14161c; border-radius: 16px; }
+  #log { white-space: pre-wrap; background:#14161c; padding:12px; border-radius:8px; margin-top:8px; font-size: 12px; max-height: 220px; overflow-y: auto; width: 600px; }
 </style>
 </head>
 <body>
-  <h2>Lean LiveKit join test (no recording, no Console overhead)</h2>
-  <p>Tests whether the room-connect timeout (ARCHITECTURE.md Phase 1) is avoidable with a minimal client path, bypassing whatever the Cloud Console's test UI adds.</p>
-  <div>
-    <label>LiveKit URL:</label><br/>
-    <input id="url" placeholder="wss://your-project.livekit.cloud" /><br/>
-    <label>Token:</label><br/>
-    <input id="token" placeholder="paste token from scripts/mint_lean_room.py" /><br/>
+  <h2>FirstRound -- Live Interview</h2>
+
+  <canvas id="face" width="320" height="320"></canvas>
+
+  <div class="controls">
+    <input id="url" placeholder="wss://your-project.livekit.cloud" />
+    <input id="token" placeholder="paste token from scripts/mint_lean_room.py" />
     <button id="connectBtn">Connect</button>
   </div>
+
   <div id="log"></div>
   <audio id="remoteAudio" autoplay></audio>
 
@@ -36,6 +48,78 @@ function log(msg) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+// --- Avatar: same amplitude-driven lip-sync technique proven standalone
+// in web/avatar.html (Phase 4), hooked here to the LIVE remote track
+// instead of a local file. ---
+const canvas = document.getElementById("face");
+const ctx = canvas.getContext("2d");
+let analyser, dataArray;
+let mouthOpenness = 0;
+
+function drawFace(openness) {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  ctx.fillStyle = "#f2c9a0";
+  ctx.beginPath();
+  ctx.ellipse(w / 2, h / 2, 105, 125, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#22252c";
+  ctx.beginPath();
+  ctx.ellipse(w / 2 - 40, h / 2 - 27, 9, 12, 0, 0, Math.PI * 2);
+  ctx.ellipse(w / 2 + 40, h / 2 - 27, 9, 12, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#5a4632";
+  ctx.lineWidth = 5;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - 55, h / 2 - 49);
+  ctx.lineTo(w / 2 - 22, h / 2 - 53);
+  ctx.moveTo(w / 2 + 22, h / 2 - 53);
+  ctx.lineTo(w / 2 + 55, h / 2 - 49);
+  ctx.stroke();
+
+  const mouthW = 62;
+  const mouthH = 5 + openness * 48;
+  ctx.fillStyle = "#7a3b3b";
+  ctx.beginPath();
+  ctx.ellipse(w / 2, h / 2 + 48, mouthW / 2, mouthH / 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  if (openness > 0.35) {
+    ctx.fillStyle = "#f5f0e6";
+    ctx.beginPath();
+    ctx.ellipse(w / 2, h / 2 + 48 - mouthH / 4, mouthW / 2 - 7, mouthH / 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (!analyser) { drawFace(0); return; }
+  analyser.getByteFrequencyData(dataArray);
+  const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+  const target = Math.min(1, avg / 90);
+  mouthOpenness += (target - mouthOpenness) * 0.35;
+  drawFace(mouthOpenness);
+}
+animate();
+
+function wireAvatarToTrack() {
+  const audioEl = document.getElementById("remoteAudio");
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  dataArray = new Uint8Array(analyser.frequencyBinCount);
+  const sourceNode = audioCtx.createMediaElementSource(audioEl);
+  sourceNode.connect(analyser);
+  analyser.connect(audioCtx.destination);
+  audioCtx.resume();
+}
+
+// --- LiveKit room connection ---
 const connectBtn = document.getElementById("connectBtn");
 connectBtn.addEventListener("click", async () => {
   const url = document.getElementById("url").value.trim();
@@ -57,6 +141,7 @@ connectBtn.addEventListener("click", async () => {
     log(`subscribed to ${track.kind} track from ${participant.identity}`);
     if (track.kind === "audio") {
       track.attach(document.getElementById("remoteAudio"));
+      wireAvatarToTrack();
     }
   });
   room.on(LivekitClient.RoomEvent.ConnectionStateChanged, (state) => log(`connection state: ${state}`));
