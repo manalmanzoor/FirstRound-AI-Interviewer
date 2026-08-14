@@ -118,17 +118,28 @@ async def run_interview(
     """
     answer_queue: asyncio.Queue[str] = asyncio.Queue()
 
-    async def publish_progress(node: str) -> None:
+    async def publish_ui(msg: dict) -> None:
+        """Push UI state to the candidate's browser. Best-effort only --
+        the interview must never depend on it."""
         if room is None:
             return
         try:
             await room.local_participant.publish_data(
-                json.dumps({"type": "progress", "node": node}),
-                reliable=True,
-                topic="interview_progress",
+                json.dumps(msg), reliable=True, topic="interview_ui"
             )
         except Exception as e:  # never let UI telemetry break the call
-            logger.debug(f"progress publish failed (ignored): {e}")
+            logger.debug(f"ui publish failed (ignored): {e}")
+
+    async def publish_progress(node: str) -> None:
+        await publish_ui({"type": "progress", "node": node})
+
+    async def publish_turn(speaker: str, text: str) -> None:
+        """Publish the exact text of a turn. Sourced from the orchestrator
+        itself rather than LiveKit transcription events -- we already know
+        verbatim what was asked and what came back, so the on-screen
+        transcript matches output/transcript.json exactly instead of
+        depending on the SDK surfacing transcription reliably."""
+        await publish_ui({"type": "turn", "speaker": speaker, "text": text})
 
     def on_user_transcribed(ev) -> None:
         if ev.is_final and ev.transcript.strip():
@@ -153,6 +164,7 @@ async def run_interview(
         say what the graph actually wants asked.
         """
         await session.interrupt()
+        await publish_turn("agent", text)
         if verbatim:
             instructions = load_prompt("orchestrator_ask_verbatim").format(text=text)
         else:
@@ -208,6 +220,7 @@ async def run_interview(
         await ask(question_text)
         answer_text = await next_candidate_answer(question_text)
         logger.info(f"  candidate answered: {answer_text[:80]}")
+        await publish_turn("candidate", answer_text)
 
         result = await setup.app.ainvoke(Command(resume=answer_text), config)
 

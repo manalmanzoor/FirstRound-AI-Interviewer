@@ -590,23 +590,28 @@ connectBtn.addEventListener("click", async () => {
     }
   });
 
-  // Real graph state from the agent (see orchestrator.publish_progress).
+  /* Real graph state AND verbatim turn text, both published by the
+     orchestrator (see publish_progress / publish_turn). Using the
+     orchestrator as the source means the on-screen transcript matches
+     output/transcript.json exactly, rather than depending on the SDK
+     surfacing transcription events. */
   room.on(LivekitClient.RoomEvent.DataReceived, (payload) => {
-    try {
-      const msg = JSON.parse(new TextDecoder().decode(payload));
-      if (msg.type === "progress" && msg.node) { activeNode = msg.node; renderFlow(); }
-    } catch (_) { /* not ours */ }
-  });
+    let msg;
+    try { msg = JSON.parse(new TextDecoder().decode(payload)); } catch (_) { return; }
 
-  // Live transcript, when the SDK surfaces transcription events.
-  if (LivekitClient.RoomEvent.TranscriptionReceived) {
-    room.on(LivekitClient.RoomEvent.TranscriptionReceived, (segments, participant) => {
-      const isAgent = participant && participant.identity !== room.localParticipant.identity;
-      segments.filter((s) => s.final).forEach((s) => {
-        if (s.text && s.text.trim()) addMessage(isAgent ? "AI Interviewer" : "You", s.text.trim());
-      });
-    });
-  }
+    if (msg.type === "progress" && msg.node) {
+      activeNode = msg.node;
+      renderFlow();
+    } else if (msg.type === "turn" && msg.text) {
+      if (msg.speaker === "agent") {
+        addMessage("AI Interviewer", msg.text);
+        $("listeningText").textContent = "Interviewer is speaking…";
+      } else {
+        addMessage("You", msg.text);
+        $("listeningText").textContent = "Thinking about your answer…";
+      }
+    }
+  });
 
   try {
     const t0 = performance.now();
