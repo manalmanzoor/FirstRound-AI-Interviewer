@@ -304,6 +304,7 @@
           <button class="ctrl" id="micBtn"><span class="ico">🎙</span><span id="micLabel">Mute</span></button>
           <button class="ctrl" disabled title="The interviewer's avatar is the visible face in this design; the candidate's camera is not published (keeps CPU free for audio)."><span class="ico">📷</span>Camera</button>
           <button class="ctrl" disabled title="Screen share is not part of this interview flow."><span class="ico">🖥</span>Share</button>
+          <button class="ctrl" id="liteBtn" title="Freeze the avatar animation. Frees main-thread time for audio playback if speech sounds choppy on a slow machine."><span class="ico">🪶</span><span id="liteLabel">Lite</span></button>
           <button class="ctrl danger" id="leaveBtn"><span class="ico">📞</span>Leave</button>
         </div>
         <details class="debug">
@@ -400,10 +401,14 @@ buildWave($("waveL"), 7); buildWave($("waveR"), 7); buildWave($("levels"), 9);
    Throttled to ~20fps; 60fps bought nothing visually and this
    CPU is the binding constraint on the whole call.
    ============================================================ */
-const canvases = [$("face"), $("faceSmall")];
 let analyser = null, dataArray = null, mouthOpenness = 0;
-const FRAME_MS = 50;
+/* ~14fps. Lip-sync on a single ellipse reads fine this low, and every
+   frame skipped is main-thread time the browser can spend keeping audio
+   playback smooth -- which matters more than animation smoothness here.
+   Raise if running on a machine that isn't CPU-bound. */
+const FRAME_MS = 70;
 let lastFrame = 0;
+let liteMode = false;   // toggled by the Lite button; freezes animation
 
 function drawFace(cv, openness) {
   const ctx = cv.getContext("2d");
@@ -450,14 +455,20 @@ function drawFace(cv, openness) {
   ctx.fill();
 }
 
-function paintBars(openness) {
-  const set = (el, base) => [...el.children].forEach((b, i) => {
+function paintBars(el, base, openness) {
+  const kids = el.children;
+  for (let i = 0; i < kids.length; i++) {
     const wobble = Math.abs(Math.sin(Date.now() / 190 + i));
-    b.style.height = `${base + openness * 46 * wobble}px`;
-  });
-  set($("waveL"), 6); set($("waveR"), 6); set($("levels"), 4);
+    kids[i].style.height = `${base + openness * 46 * wobble}px`;
+  }
 }
 
+/* Only ever touch what's actually on screen. The first version painted
+   BOTH canvases and all 23 waveform bars every frame regardless of which
+   screen was visible -- roughly double the main-thread work for no visual
+   benefit. On this CPU that jank was starving the audio buffer and
+   showing up as choppy, laggy speech, so this is an audio fix as much as
+   a rendering one. */
 function animate(now) {
   requestAnimationFrame(animate);
   if (now - lastFrame < FRAME_MS) return;
@@ -465,13 +476,24 @@ function animate(now) {
 
   if (analyser) {
     analyser.getByteFrequencyData(dataArray);
-    const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-    mouthOpenness += (Math.min(1, avg / 90) - mouthOpenness) * 0.35;
+    let sum = 0;
+    for (let i = 0; i < dataArray.length; i++) sum += dataArray[i];
+    mouthOpenness += (Math.min(1, sum / dataArray.length / 90) - mouthOpenness) * 0.35;
   } else {
     mouthOpenness = 0;
   }
-  canvases.forEach((cv) => drawFace(cv, mouthOpenness));
-  paintBars(mouthOpenness);
+
+  if (liteMode) { drawFace($("face"), 0); return; }
+
+  const inCall = $("call").style.display === "grid";
+  if (inCall) {
+    drawFace($("face"), mouthOpenness);
+    paintBars($("levels"), 4, mouthOpenness);
+  } else {
+    drawFace($("faceSmall"), mouthOpenness);
+    paintBars($("waveL"), 6, mouthOpenness);
+    paintBars($("waveR"), 6, mouthOpenness);
+  }
 }
 requestAnimationFrame(animate);
 
@@ -635,6 +657,12 @@ $("micBtn").onclick = async () => {
   $("micLabel").textContent = micOn ? "Mute" : "Unmute";
   log(micOn ? "mic unmuted" : "mic muted");
 };
+$("liteBtn").onclick = () => {
+  liteMode = !liteMode;
+  $("liteLabel").textContent = liteMode ? "Animate" : "Lite";
+  log(liteMode ? "lite mode ON (avatar frozen, audio prioritised)" : "lite mode OFF");
+};
+
 const leave = async () => { await room?.disconnect(); $("listeningText").textContent = "Interview ended."; };
 $("leaveBtn").onclick = leave;
 $("endBtn").onclick = leave;
