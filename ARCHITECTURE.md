@@ -492,6 +492,71 @@ perfect eval table reads as fabricated"):
   evidence_quote is validated downstream (`guardrails_bridge.py`);
   competency-set completeness currently isn't, and probably should be.
 
+## Phase 7 — The Real Interview (first attempt: found 4 real bugs)
+
+`src/realtime/orchestrator.py` is the bridge that didn't exist until this
+phase: Phase 3 proved the graph against *scripted text* answers, and
+Phase 1 proved the voice call could hold a conversation, but nothing had
+ever connected the two. The orchestrator speaks each question the graph's
+`interrupt()` yields and feeds the candidate's transcribed speech back in
+via `Command(resume=...)`.
+
+**The first real interview ran 15.1 minutes end to end and looked like a
+success from the outside — every requirement it appeared to exercise
+worked. Reading the actual output showed four real defects, one of them
+a silent 10-mark failure.**
+
+1. **Zero GitHub-grounded questions were asked** (`github_grounded_questions_asked: 0`),
+   silently failing requirement #4's ">=3" while every other part of the
+   run looked healthy. Cause: the PRD's suggested node order puts
+   `github_deepdive` *third*, after `resume_probe` and `jd_fit`. Each
+   content node cycles through all of its source's questions plus up to
+   2 adaptive follow-ups each, so the 900s time budget expired during
+   `jd_fit` and `route_after_answer` correctly jumped to `wrap_up` --
+   skipping GitHub entirely. Fixed two ways: `github_deepdive` now runs
+   FIRST among content nodes (documented deviation from the PRD's order
+   -- it's the highest-value requirement and the one that best proves
+   real preparation), and `TIME_BUDGET_S` dropped 15min -> 11min so
+   `wrap_up` and `candidate_qs` still land *inside* Gemini Live's hard
+   15-minute audio-session cap (Phase 0 finding) instead of the call
+   being cut off mid-sentence.
+2. **Two voices talking over each other**, reported by the user and
+   confirmed in the logs. Gemini Live is a full conversational agent: it
+   auto-generates its own reply the moment it detects the candidate
+   stopped speaking, *while* the orchestrator is separately driving the
+   conversation with the scripted next question. Both play at once,
+   saying different things. Fixed with `session.interrupt()` before every
+   scripted utterance, cancelling whatever Gemini started on its own.
+   Note this is a genuine architectural tension, not a clean win: the
+   same native VAD that makes barge-in work (requirement #2) is what
+   makes Gemini answer on its own. Suppressing its *output* while keeping
+   its *turn detection* is the compromise.
+3. **"Can you repeat again?" was recorded as an answer** and advanced the
+   graph -- burning a real question and counting toward the probe cap.
+   Now detected and re-asked instead (`is_repeat_request`). First version
+   of that regex was too rigid and missed both phrases the candidate
+   actually said ("Can you repeat again?", "Uh, what were you asking?")
+   -- fixed by allowing filler prefixes and trailing words, and unit
+   tested against 16 cases including near-misses that must NOT trigger
+   ("I would repeat the test with a larger dataset").
+4. **Transcription mis-detected the language** on two turns, returning
+   Arabic and Devanagari script for English speech, which the scorer then
+   had to grade as garbage. Pinned `language="en-US"` on the
+   RealtimeModel rather than relying on auto-detect, which handles a
+   non-US English accent poorly.
+
+Also fixed: `orchestrator.py` imported `livekit.agents` without first
+importing the `_compat` SIGILL stub, so it crashed the interpreter when
+imported directly rather than via `agent.py`. It now imports `_compat`
+itself.
+
+**Scoring the first (defective) interview is still informative:** the
+scorer returned `overall_score 1.0 / no_hire` with every `evidence_quote`
+verified against the real transcript. That's the pipeline behaving
+correctly on bad input -- the answers it saw genuinely were fragments
+like `"introducing you"` and `"Can you repeat again?"`. The scoring
+mechanism was never the problem; the conversation feeding it was.
+
 ## Measured Latency (filled in as each piece comes online)
 
 ## Known Limitations (filled in honestly as they're found — see PRD §1)

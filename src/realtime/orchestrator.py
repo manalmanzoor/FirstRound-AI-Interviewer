@@ -24,9 +24,12 @@ session.start() even begins removes the contention rather than hoping
 the timing works out differently next time.
 """
 
+from . import _compat  # noqa: F401  -- MUST precede any livekit.agents import
+
 import asyncio
 import json
 import logging
+import re
 from pathlib import Path
 
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
@@ -38,6 +41,34 @@ from src.graph import build_graph, make_initial_state
 ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = ROOT / "interview_checkpoints.db"
 logger = logging.getLogger("firstround.orchestrator")
+
+# A candidate asking us to repeat is NOT an answer -- feeding it to the
+# graph as one burns a real question and (worse) counts toward the
+# adaptive-follow-up probe cap. Seen for real in the first interview:
+# "Can you repeat again?" and "Uh, what were you asking?" both got
+# recorded as answers and the graph moved on.
+# Leading filler is common in real speech and broke the first version of
+# this pattern: the two phrases actually said in the first interview
+# ("Can you repeat again?", "Uh, what were you asking?") both slipped
+# through an over-rigid regex. Allow filler prefixes, and allow trailing
+# words after the key phrase rather than anchoring straight to the end.
+_FILLER = r"(?:(?:uh+|um+|er+|ah+|sorry|hey|wait|hold on|so)[\s,]+)*"
+_REPEAT_REQUEST = re.compile(
+    rf"^\s*{_FILLER}("
+    r"(can|could|would) you (please )?(repeat|say)\b[\w\s']*"
+    r"|repeat\b[\w\s']*"
+    r"|what (was|were) (you|the) (asking|question|saying|said)\b[\w\s']*"
+    r"|come again"
+    r"|i (didn'?t|did not) (catch|hear|get)\b[\w\s']*"
+    r"|pardon( me)?"
+    r"|say (that |it )?again"
+    r")[\s?.!]*$",
+    re.IGNORECASE,
+)
+
+
+def is_repeat_request(text: str) -> bool:
+    return bool(_REPEAT_REQUEST.match(text.strip()))
 
 
 class InterviewSetup:
@@ -79,23 +110,52 @@ async def run_interview(session: AgentSession, setup: InterviewSetup, thread_id:
     initial_state = make_initial_state(setup.candidate, setup.question_plan)
     result = await setup.app.ainvoke(initial_state, config)
 
+    async def ask(text: str, *, verbatim: bool = True) -> None:
+        """Speak `text` through the live session, suppressing Gemini's own
+        spontaneous reply first.
+
+        Gemini Live is a full conversational agent: when it detects the
+        candidate finished speaking it generates its OWN response, while
+        this orchestrator is separately driving the conversation with the
+        scripted next question. Both play at once -- the "two voices
+        saying different things" reported in the first real interview.
+        interrupt() cancels whatever Gemini started on its own before we
+        say what the graph actually wants asked.
+        """
+        await session.interrupt()
+        if verbatim:
+            instructions = (
+                "Ask the candidate exactly this question, word-for-word, "
+                f"with no paraphrasing and no extra commentary: {text!r}"
+            )
+        else:
+            instructions = text
+        await session.generate_reply(instructions=instructions)
+
+    async def next_candidate_answer(question_text: str) -> str:
+        """Wait for a real answer, transparently handling "can you repeat
+        that?" by re-asking instead of treating it as the answer."""
+        while True:
+            answer = await answer_queue.get()
+            if is_repeat_request(answer):
+                logger.info(f"  repeat request ({answer.strip()!r}) -- re-asking, not advancing")
+                await ask(question_text)
+                continue
+            return answer
+
     while "__interrupt__" in result:
         payload = result["__interrupt__"][0].value
         question_text = payload["text"]
         logger.info(f"[{payload['node']}] asking: {question_text[:80]}")
 
-        await session.generate_reply(
-            instructions=(
-                "Ask the candidate exactly this question, word-for-word, "
-                f"with no paraphrasing and no extra commentary: {question_text!r}"
-            )
-        )
-
-        # Drain any stale transcripts left over from the question itself
-        # being (mis-)attributed to the user, then wait for the real answer.
+        # Drain stale transcripts BEFORE asking, so anything captured while
+        # the previous turn was settling can't be mistaken for the answer
+        # to the question we're about to ask.
         while not answer_queue.empty():
             answer_queue.get_nowait()
-        answer_text = await answer_queue.get()
+
+        await ask(question_text)
+        answer_text = await next_candidate_answer(question_text)
         logger.info(f"  candidate answered: {answer_text[:80]}")
 
         result = await setup.app.ainvoke(Command(resume=answer_text), config)
@@ -103,9 +163,6 @@ async def run_interview(session: AgentSession, setup: InterviewSetup, thread_id:
     final_state = await setup.app.aget_state(config)
     transcript = final_state.values["transcript"]
     if transcript and transcript[-1]["speaker"] == "agent":
-        closing_text = transcript[-1]["text"]
-        await session.generate_reply(
-            instructions=f"Say exactly, word-for-word, with no extra commentary: {closing_text!r}"
-        )
+        await ask(transcript[-1]["text"])
 
     logger.info("Interview complete -- output/transcript.json written by wrap_up node.")

@@ -61,6 +61,14 @@ class InterviewerAgent(Agent):
                 # there's no text form of the candidate's spoken answer to
                 # feed into the graph's Command(resume=...).
                 input_audio_transcription=genai_types.AudioTranscriptionConfig(),
+                # Pin to English. Without this, auto language detection
+                # mis-transcribed two answers in the first real interview
+                # into Arabic and Devanagari script ("هلا", "ऑन द एंड
+                # पॉइंट्स") -- the scorer then had garbage to score for
+                # those turns. The candidate speaks English with a
+                # non-US accent, which is exactly the case auto-detect
+                # gets wrong.
+                language="en-US",
             ),
         )
 

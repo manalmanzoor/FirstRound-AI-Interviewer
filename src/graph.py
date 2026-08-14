@@ -12,9 +12,15 @@ from langgraph.graph import END, START, StateGraph
 
 ROOT = Path(__file__).resolve().parents[1]
 
-# Soft cap so the graph doesn't run forever -- not a PRD-mandated number,
-# just a sane upper bound above the 8+ minute floor requirement #1 sets.
-TIME_BUDGET_S = 15 * 60
+# Hard-ish cap, and the number matters more than it first looks:
+# Gemini Live audio-only sessions die at 15 minutes (Phase 0 finding), so
+# the interview must WRAP UP before that, not get cut off mid-sentence.
+# The first real interview ran 906s with this set to 900 and hit the
+# budget while still in jd_fit -- it jumped straight to wrap_up and never
+# reached github_deepdive, asking ZERO GitHub-grounded questions
+# (requirement #4 needs >=3). Lowered to leave real headroom for wrap_up
+# and candidate_qs to still happen inside Gemini's session limit.
+TIME_BUDGET_S = 11 * 60
 
 
 class InterviewState(TypedDict):
@@ -97,7 +103,18 @@ def build_graph():
     builder.add_node("wrap_up", wrap_up.run)
 
     builder.add_edge(START, "intro")
-    builder.add_edge("intro", "resume_probe")
+    # github_deepdive runs FIRST among the content nodes, deviating from
+    # the PRD's suggested intro -> resume_probe -> jd_fit -> github_deepdive
+    # ordering. Reason, learned the hard way from the first real interview:
+    # a live voice interview is time-boxed by Gemini's 15-minute session
+    # cap, and each node cycles through all of its source's questions plus
+    # up to 2 follow-ups each. With github_deepdive third, the clock ran
+    # out during jd_fit and ZERO GitHub-grounded questions were ever asked
+    # -- silently failing requirement #4 (>=3 grounded questions, 10 marks)
+    # while every other part of the graph looked like it worked fine.
+    # GitHub grounding is both the highest-value requirement and the one
+    # that best demonstrates real preparation, so it goes first now.
+    builder.add_edge("intro", "github_deepdive")
 
     # 4 conditional edges off the 4 content nodes -- comfortably clears the
     # "2+ conditional edges" bar, and this is genuinely where the adaptive
@@ -105,16 +122,16 @@ def build_graph():
     # "stay" covers both "ask a follow-up" and "ask the next question of
     # this node's source" -- content_node disambiguates those internally.
     builder.add_conditional_edges(
+        "github_deepdive", make_route_after_answer("github"),
+        {"stay": "github_deepdive", "next_node": "resume_probe", "wrap_up": "wrap_up"},
+    )
+    builder.add_conditional_edges(
         "resume_probe", make_route_after_answer("resume"),
         {"stay": "resume_probe", "next_node": "jd_fit", "wrap_up": "wrap_up"},
     )
     builder.add_conditional_edges(
         "jd_fit", make_route_after_answer("jd"),
-        {"stay": "jd_fit", "next_node": "github_deepdive", "wrap_up": "wrap_up"},
-    )
-    builder.add_conditional_edges(
-        "github_deepdive", make_route_after_answer("github"),
-        {"stay": "github_deepdive", "next_node": "scenario", "wrap_up": "wrap_up"},
+        {"stay": "jd_fit", "next_node": "scenario", "wrap_up": "wrap_up"},
     )
     builder.add_conditional_edges(
         "scenario", make_route_after_answer("scenario"),
