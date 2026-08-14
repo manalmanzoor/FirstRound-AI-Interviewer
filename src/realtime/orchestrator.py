@@ -171,6 +171,17 @@ async def run_interview(
         depending on the SDK surfacing transcription reliably."""
         await publish_ui({"type": "turn", "speaker": speaker, "text": text})
 
+    async def publish_status(state: str) -> None:
+        """Tell the UI what's actually happening right now, independent of
+        the transcript. Reported bug: the "Interviewer is speaking..."
+        label was set the moment a question STARTED and nothing ever
+        flipped it back -- it stayed on screen through the candidate's
+        entire answer, since the next update only came from publish_turn
+        AFTER the answer had already been fully collected. The candidate
+        was watching a stale label and second-guessing whether they were
+        being heard. This fires the instant audio playout actually ends."""
+        await publish_ui({"type": "status", "state": state})
+
     def on_user_transcribed(ev) -> None:
         if ev.is_final and ev.transcript.strip():
             answer_queue.put_nowait(ev.transcript)
@@ -257,6 +268,10 @@ async def run_interview(
             await handle.wait_for_playout()
         except Exception as e:
             logger.debug(f"wait_for_playout failed (continuing): {e}")
+        # Audio has genuinely stopped now (whether it played out fully or
+        # was barged in on) -- tell the UI so its label matches reality
+        # instead of lagging until the answer is already fully processed.
+        await publish_status("listening")
         return handle
 
     async def collect_full_answer() -> str:

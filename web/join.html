@@ -632,6 +632,13 @@ connectBtn.addEventListener("click", async () => {
         addMessage("You", msg.text);
         $("listeningText").textContent = "Thinking about your answer…";
       }
+    } else if (msg.type === "status" && msg.state === "listening") {
+      // Fires the instant the question audio actually finishes (see
+      // orchestrator.publish_status) -- without this the label stayed on
+      // "Interviewer is speaking…" through the candidate's whole answer,
+      // since the next update otherwise only came once the answer had
+      // already been fully collected.
+      $("listeningText").textContent = "Listening…";
     }
   });
 
