@@ -335,6 +335,88 @@ real join page is deferred alongside the room-connect fix (see Phase 1
 Open/Unresolved) since real end-to-end testing needs a working room
 either way.
 
+## Phase 5 — Scorecard & Guardrails
+
+### Guardrails (requirement #9)
+
+Both live in `src/guardrails/`, both proven by `src/guardrails_test.py`
+(9 banned-topic categories, 4 legitimate-question false-positive checks,
+5 evidence-check cases) -- not just a code comment claiming they work.
+
+- `banned_questions.py` (#9a): keyword/regex blocklist across the 8 PRD
+  categories (age, gender, marital status, religion, nationality,
+  health/pregnancy, salary history, politics), checked in
+  `src/nodes/_content_node.py` *before* a question is ever selected to
+  ask -- both for fresh questions pulled from the plan and for generated
+  follow-up trigger text (which falls back to a fixed, pre-reviewed
+  generic follow-up if a trigger somehow touches a banned topic). Chose
+  regex over an LLM classifier deliberately: a "blocklist" should be
+  deterministic and near-zero latency on every single question, and a
+  test "proving it fires" is far more reliable against a deterministic
+  check than a stochastic model call. First-draft patterns missed several
+  real phrasings during testing ("planning to have children" vs the
+  original `plans? to`, "are you currently pregnant" vs the original
+  `are you pregnant`, "salary at your last job" vs pattern names anchored
+  to the wrong phrase) -- broadened based on what the test suite actually
+  caught, not guessed in advance.
+- `evidence_check.py` (#9b): stronger than "field is non-empty" --
+  rejects unless `evidence_quote` is a real, verbatim substring of one of
+  the *candidate's* transcript turns (normalized for whitespace/case). A
+  fabricated-but-plausible quote, or a quote sourced from the agent's own
+  turn, is rejected just as an empty one is. The same function backs both
+  `mcp_server/server.py`'s `save_score` (rejects the write) and
+  `src/agents/scorer.py` (flags any competency whose LLM-generated
+  evidence doesn't check out) -- one guardrail implementation enforced in
+  two places, not two independently-drifting copies.
+
+**Bugs caught while wiring guardrails into the graph, not just in the
+guardrail modules themselves:** the `guardrail_flags` list in
+`_content_node.py` had two separate `state["guardrail_flags"] + [...]`
+assignments (one for skipped banned-topic questions, one for bluff
+detection) that would silently overwrite each other if both fired in the
+same turn, since both started from the same pre-update `state` rather
+than accumulating. Also, questions skipped for a banned topic weren't
+being added to `asked_question_ids`, which would have made
+`_next_question` re-skip (and re-flag) the same question indefinitely.
+Both fixed before considering this done.
+
+### Scorecard (requirement #10)
+
+`src/agents/scorer.py`: `transcript.json` + `question_plan.json` ->
+`scorecard.json`, matching the PRD section 4 schema exactly. The prompt's
+single most important instruction, stated first and explicitly (PRD
+section 1): a confident-sounding but wrong or hand-wavy answer must score
+*below* a hesitant-but-correct one -- fluency is explicitly not the
+signal, substance is. Every `guardrail_flags` entry gathered live during
+the interview (bluff detections) is passed into the scoring prompt as a
+hint to pull that competency's score down, not silently dropped. Real
+discriminative validation of this (bluffer scoring below nervous-correct)
+is Phase 6's job with purpose-built personas -- what's proven here is
+that the mechanics work end-to-end: tested against a real transcript
+(`src/graph_test.py`'s scripted run), produced a schema-valid scorecard
+with every `evidence_quote` independently re-verified against the real
+transcript via the same `evidence_check` guardrail
+(`src/agents/guardrails_bridge.py`), and correctly gave a low score with
+specific, evidence-referenced reasoning (not generic platitudes) once the
+scripted answers degraded into repeated filler text -- not fooled by the
+earlier, more fluent-sounding turns.
+
+**`guardrail_flags`/`github_grounded_questions_asked`/`duration_seconds`
+live in graph state, not in the PRD's fixed `transcript.json` schema
+(which is just `{"turns": [...]}`)** -- without carrying them over
+somewhere, the scorer would never see the bluff flags gathered live
+during the interview. PRD section 4 explicitly allows extra fields ("do
+not deviate -- extra fields OK, missing fields are not"), so
+`src/nodes/wrap_up.py` adds them as extra top-level fields on
+`transcript.json` rather than inventing a second output file.
+
+**Small bug caught by reading the actual output, not just checking the
+schema validated:** the model has no reliable notion of "today" and
+invented a plausible-but-wrong `interview_date` on the first real run.
+Fixed by setting it programmatically after the structured call, the same
+way `duration_seconds`/`guardrail_flags`/`github_grounded_questions_asked`
+already were.
+
 ## Measured Latency (filled in as each piece comes online)
 
 ## Known Limitations (filled in honestly as they're found — see PRD §1)

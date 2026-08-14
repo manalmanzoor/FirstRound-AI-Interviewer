@@ -98,3 +98,26 @@ class QuestionPlan(BaseModel):
     questions: list[Question]
     approved_by_human: bool = False
     edits_made: list[str] = Field(default_factory=list)
+
+
+class CompetencyScore(BaseModel):
+    name: str
+    score: int  # 1-5
+    confidence: float  # 0.0-1.0
+    evidence_quote: str
+    reasoning: str
+
+
+class Scorecard(BaseModel):
+    candidate_name: str
+    role: str
+    interview_date: str
+    duration_seconds: int
+    competencies: list[CompetencyScore]
+    overall_score: float
+    recommendation: str  # "strong_hire" | "hire" | "borderline" | "no_hire"
+    recommendation_reasoning: str
+    strengths: list[str]
+    concerns: list[str]
+    guardrail_flags: list[str] = Field(default_factory=list)
+    github_grounded_questions_asked: int = 0

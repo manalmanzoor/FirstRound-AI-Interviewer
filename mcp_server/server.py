@@ -9,6 +9,7 @@ not a multi-tenant store.
 """
 
 import json
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -17,6 +18,11 @@ from fastmcp import FastMCP
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "output"
 PREP = OUTPUT / "prep"
+
+# Claude Desktop spawns this as a subprocess with its own cwd, not
+# necessarily the project root -- make the src.* import work regardless.
+sys.path.insert(0, str(ROOT))
+from src.guardrails.evidence_check import check_evidence  # noqa: E402
 
 INTERVIEW_ID = "interview-1"
 
@@ -68,15 +74,16 @@ def save_score(
     evidence_quote: str,
     reasoning: str,
 ) -> dict:
-    """Save a competency score to the scorecard. Rejects the write if
-    evidence_quote is empty -- this is where guardrail #9b (no score
-    without a transcript quote) actually lives, per the PRD's own tool
-    contract."""
-    if not evidence_quote or not evidence_quote.strip():
-        return {
-            "status": "rejected",
-            "reason": "evidence_quote is required -- no score without a real transcript quote (guardrail #9b)",
-        }
+    """Save a competency score to the scorecard. Rejects the write unless
+    evidence_quote is a real quote found in the candidate's transcript --
+    this is where guardrail #9b (no score without a transcript quote)
+    actually lives, per the PRD's own tool contract. Not just "field is
+    non-empty": a plausible-sounding but fabricated quote is rejected too."""
+    transcript = _read_json(OUTPUT / "transcript.json")
+    turns = transcript["turns"] if transcript else []
+    result = check_evidence(evidence_quote, turns)
+    if not result.valid:
+        return {"status": "rejected", "reason": f"{result.reason} (guardrail #9b)"}
 
     scorecard_path = OUTPUT / "scorecard.json"
     scorecard = _read_json(scorecard_path)
