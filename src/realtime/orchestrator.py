@@ -186,6 +186,27 @@ async def run_interview(
 
     session.on("user_state_changed", on_user_state)
 
+    # Gemini Live is an autonomous conversationalist: left alone it will
+    # fill a silence with a question of its own. The longer answer-
+    # collection window (needed so real answers aren't truncated) is
+    # exactly such a silence, so it started inventing off-plan questions
+    # -- e.g. asking about supervised vs unsupervised learning, which is
+    # nowhere in the question plan. The candidate would answer THAT while
+    # the orchestrator was still waiting on its own scripted question,
+    # and the two conversations desynced.
+    #
+    # While the orchestrator is collecting an answer, the agent has no
+    # business speaking: everything it should say is driven by the graph.
+    # So cut off anything it starts on its own during that window.
+    collecting = {"now": False}
+
+    def on_agent_state(ev) -> None:
+        if collecting["now"] and ev.new_state == "speaking":
+            logger.info("  suppressing unscripted agent speech during answer collection")
+            asyncio.create_task(session.interrupt())
+
+    session.on("agent_state_changed", on_agent_state)
+
     config = {"configurable": {"thread_id": thread_id}}
     initial_state = make_initial_state(setup.candidate, setup.question_plan)
     result = await setup.app.ainvoke(initial_state, config)
@@ -253,6 +274,7 @@ async def run_interview(
             except asyncio.TimeoutError:
                 pass
 
+
             # No new transcript for ANSWER_SETTLE_S -- but that alone
             # doesn't mean they're done. Two things can still be true:
             #   1. VAD says they're speaking right now.
@@ -286,7 +308,14 @@ async def run_interview(
 
             if is_repeat_request(stripped):
                 logger.info(f"  repeat request ({stripped!r}) -- re-asking, not advancing")
-                await ask(question_text)
+                # Re-asking is OUR speech, not the model improvising, so
+                # lift the suppression for it -- otherwise on_agent_state
+                # would cut off the repeat the candidate just asked for.
+                collecting["now"] = False
+                try:
+                    await ask(question_text)
+                finally:
+                    collecting["now"] = True
                 continue
 
             if len(stripped.split()) < MIN_ANSWER_WORDS and not stripped.endswith((".", "!", "?")):
@@ -312,7 +341,14 @@ async def run_interview(
             while not answer_queue.empty():
                 answer_queue.get_nowait()
 
-        answer_text = await next_candidate_answer(question_text)
+        # From here until we have the answer, the agent must stay quiet --
+        # anything it starts saying on its own gets cut off by
+        # on_agent_state above.
+        collecting["now"] = True
+        try:
+            answer_text = await next_candidate_answer(question_text)
+        finally:
+            collecting["now"] = False
         logger.info(f"  candidate answered: {answer_text[:80]}")
         await publish_turn("candidate", answer_text)
 
