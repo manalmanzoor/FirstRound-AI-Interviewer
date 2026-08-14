@@ -7,13 +7,21 @@ the complete transcript in memory right up to this last turn.
 """
 
 import json
+import os
 import time
 from pathlib import Path
 
 from src.graph import InterviewState
 
 ROOT = Path(__file__).resolve().parents[2]
-TRANSCRIPT_PATH = ROOT / "output" / "transcript.json"
+
+# Overridable so src/graph_test.py's scripted run doesn't clobber the
+# REAL interview's output/transcript.json -- it did exactly that during
+# Phase 7, silently replacing a real 15-minute interview transcript with
+# a 56-second test one.
+TRANSCRIPT_PATH = Path(
+    os.environ.get("FIRSTROUND_TRANSCRIPT_PATH", ROOT / "output" / "transcript.json")
+)
 
 NODE_NAME = "wrap_up"
 CLOSING = (

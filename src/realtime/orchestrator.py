@@ -42,6 +42,11 @@ ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = ROOT / "interview_checkpoints.db"
 logger = logging.getLogger("firstround.orchestrator")
 
+# How long the candidate must be quiet before their answer counts as
+# finished. Long enough to survive a mid-sentence breath or a pause to
+# think, short enough that the interview doesn't feel laggy.
+ANSWER_SETTLE_S = 2.5
+
 # A candidate asking us to repeat is NOT an answer -- feeding it to the
 # graph as one burns a real question and (worse) counts toward the
 # adaptive-follow-up probe cap. Seen for real in the first interview:
@@ -132,11 +137,34 @@ async def run_interview(session: AgentSession, setup: InterviewSetup, thread_id:
             instructions = text
         await session.generate_reply(instructions=instructions)
 
+    async def collect_full_answer() -> str:
+        """Gather ONE complete spoken answer, not just its first fragment.
+
+        Gemini emits several is_final segments for a single continuous
+        utterance -- one sentence, several events. Taking the first as
+        "the answer" made the agent ask the next question while the
+        candidate was still mid-sentence, and their remaining words then
+        landed as the answer to that next question. In the first real
+        interview "my name is Manal and I'm a software engineering
+        student / I've spent the last year building AI projects..." got
+        split across two different questions exactly this way.
+
+        So: take the first segment, then keep absorbing further segments
+        until the candidate goes quiet for ANSWER_SETTLE_S.
+        """
+        parts = [await answer_queue.get()]
+        while True:
+            try:
+                nxt = await asyncio.wait_for(answer_queue.get(), timeout=ANSWER_SETTLE_S)
+            except asyncio.TimeoutError:
+                return " ".join(p.strip() for p in parts).strip()
+            parts.append(nxt)
+
     async def next_candidate_answer(question_text: str) -> str:
         """Wait for a real answer, transparently handling "can you repeat
         that?" by re-asking instead of treating it as the answer."""
         while True:
-            answer = await answer_queue.get()
+            answer = await collect_full_answer()
             if is_repeat_request(answer):
                 logger.info(f"  repeat request ({answer.strip()!r}) -- re-asking, not advancing")
                 await ask(question_text)

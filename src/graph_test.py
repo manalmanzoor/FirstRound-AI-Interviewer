@@ -8,14 +8,25 @@ Run: python -m src.graph_test
 
 import asyncio
 import json
+import os
 from pathlib import Path
 
-from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
-from langgraph.types import Command
-
-from src.graph import build_graph, make_initial_state
-
 ROOT = Path(__file__).resolve().parents[1]
+
+# MUST be set before importing src.nodes.wrap_up (via src.graph), which
+# binds its transcript path at import time. Without this, running the
+# tests silently overwrites the REAL interview's
+# output/transcript.json -- it replaced a real 15-minute transcript with
+# a 56-second scripted one during Phase 7.
+os.environ.setdefault(
+    "FIRSTROUND_TRANSCRIPT_PATH", str(ROOT / "output" / "test_transcript.json")
+)
+
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver  # noqa: E402
+from langgraph.types import Command  # noqa: E402
+
+from src.graph import build_graph, make_initial_state  # noqa: E402
+
 DB_PATH = ROOT / "checkpoints.db"
 
 # Scripted to exercise every routing path at least once:

@@ -42,3 +42,42 @@ if "livekit.local_inference" not in sys.modules:
     _stub.init_eot = lambda *a, **k: None
 
     sys.modules["livekit.local_inference"] = _stub
+
+
+def _relax_gemini_websocket_keepalive() -> None:
+    """Stop transient CPU starvation from killing the Gemini Live call.
+
+    websockets defaults to ping_interval=20s / ping_timeout=20s. On this
+    machine -- a 1.1GHz Celeron running the Python agent, Chrome doing
+    WebRTC encode/decode, and a screen recorder, all at once -- the event
+    loop can starve for longer than that, and the client then tears down
+    a perfectly healthy connection: "sent 1011 keepalive ping timeout",
+    followed by "1006 abnormal closure" and the interview dying mid-call
+    (observed ~3.5 minutes into a real interview).
+
+    google-genai hardcodes its ws_connect() call and exposes no way to
+    pass ping settings through, so patch the binding directly. Pings are
+    still SENT (so genuinely dead connections are still detected by the
+    server side); only the client-side timeout that was firing on a
+    false positive is disabled.
+    """
+    try:
+        import google.genai.live as _genai_live
+    except ImportError:  # google-genai not installed / not needed here
+        return
+
+    if getattr(_genai_live, "_firstround_keepalive_patched", False):
+        return
+
+    _original_ws_connect = _genai_live.ws_connect
+
+    def _patched_ws_connect(*args, **kwargs):
+        kwargs.setdefault("ping_interval", 20)
+        kwargs.setdefault("ping_timeout", None)  # no client-side timeout
+        return _original_ws_connect(*args, **kwargs)
+
+    _genai_live.ws_connect = _patched_ws_connect
+    _genai_live._firstround_keepalive_patched = True
+
+
+_relax_gemini_websocket_keepalive()
