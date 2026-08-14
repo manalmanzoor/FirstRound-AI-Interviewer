@@ -48,6 +48,13 @@ logger = logging.getLogger("firstround.orchestrator")
 # think, short enough that the interview doesn't feel laggy.
 ANSWER_SETTLE_S = 2.5
 
+# Below this many words, a transcript is treated as a noise blip rather
+# than an answer, and the orchestrator keeps listening instead of
+# advancing the graph. Deliberately low: real short answers do happen
+# ("Yes, I did.", "No, we can continue."), and those end in punctuation,
+# which is allowed through regardless of length.
+MIN_ANSWER_WORDS = 3
+
 # A candidate asking us to repeat is NOT an answer -- feeding it to the
 # graph as one burns a real question and (worse) counts toward the
 # adaptive-follow-up probe cap. Seen for real in the first interview:
@@ -169,7 +176,24 @@ async def run_interview(
             instructions = load_prompt("orchestrator_ask_verbatim").format(text=text)
         else:
             instructions = text
-        await session.generate_reply(instructions=instructions)
+        handle = await session.generate_reply(instructions=instructions)
+
+        # Wait until the question has actually finished playing before we
+        # start listening for the answer. Without this the orchestrator
+        # was already collecting from the transcript queue WHILE the agent
+        # was still speaking, so a stray fragment (echo, a throat-clear,
+        # the candidate starting early) could satisfy the answer and the
+        # graph would advance to the next question mid-sentence -- the
+        # "it asked the next one while I was still answering" bug.
+        #
+        # This does NOT defeat barge-in: an interruption ends playout
+        # early, so wait_for_playout() returns right then and we go
+        # straight to listening, which is exactly the desired behaviour.
+        try:
+            await handle.wait_for_playout()
+        except Exception as e:
+            logger.debug(f"wait_for_playout failed (continuing): {e}")
+        return handle
 
     async def collect_full_answer() -> str:
         """Gather ONE complete spoken answer, not just its first fragment.
@@ -195,14 +219,29 @@ async def run_interview(
             parts.append(nxt)
 
     async def next_candidate_answer(question_text: str) -> str:
-        """Wait for a real answer, transparently handling "can you repeat
-        that?" by re-asking instead of treating it as the answer."""
+        """Wait for a REAL answer.
+
+        Two things are filtered out rather than being treated as answers
+        and advancing the graph:
+        - "can you repeat that?" -> re-ask the same question
+        - noise blips / single stray tokens (e.g. "<noise>", "uh", a
+          one-word echo artefact). Advancing on these was part of why the
+          interview felt like it moved on before the candidate had
+          actually said anything.
+        """
         while True:
             answer = await collect_full_answer()
-            if is_repeat_request(answer):
-                logger.info(f"  repeat request ({answer.strip()!r}) -- re-asking, not advancing")
+            stripped = answer.strip()
+
+            if is_repeat_request(stripped):
+                logger.info(f"  repeat request ({stripped!r}) -- re-asking, not advancing")
                 await ask(question_text)
                 continue
+
+            if len(stripped.split()) < MIN_ANSWER_WORDS and not stripped.endswith((".", "!", "?")):
+                logger.info(f"  ignoring noise fragment {stripped!r} -- still listening")
+                continue
+
             return answer
 
     while "__interrupt__" in result:
@@ -211,13 +250,17 @@ async def run_interview(
         logger.info(f"[{payload['node']}] asking: {question_text[:80]}")
         await publish_progress(payload["node"])
 
-        # Drain stale transcripts BEFORE asking, so anything captured while
-        # the previous turn was settling can't be mistaken for the answer
-        # to the question we're about to ask.
-        while not answer_queue.empty():
-            answer_queue.get_nowait()
+        # ask() now returns only once the question has finished playing
+        # (or was interrupted). Draining AFTER that -- rather than before
+        # asking -- is what actually clears echo and stray fragments
+        # picked up while the agent was talking. Draining beforehand left
+        # that whole window unguarded, which is how the graph could
+        # advance before the candidate had really answered.
+        handle = await ask(question_text)
+        if handle is not None and not handle.interrupted:
+            while not answer_queue.empty():
+                answer_queue.get_nowait()
 
-        await ask(question_text)
         answer_text = await next_candidate_answer(question_text)
         logger.info(f"  candidate answered: {answer_text[:80]}")
         await publish_turn("candidate", answer_text)
