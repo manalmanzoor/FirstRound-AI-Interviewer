@@ -45,20 +45,31 @@ DB_PATH = ROOT / "interview_checkpoints.db"
 logger = logging.getLogger("firstround.orchestrator")
 
 # How long the candidate must be quiet before their answer counts as
-# finished. Long enough to survive a mid-sentence breath or a pause to
-# think, short enough that the interview doesn't feel laggy.
-ANSWER_SETTLE_S = 4.0
+# finished, on the fast path (VAD agrees they've actually stopped). This
+# used to double as the polling interval for the safety extension below
+# too, which meant every extra check cost a full 4s even when only ~1s
+# of real grace was needed -- that's what made the interview feel like
+# it was taking forever between answer and next question. Decoupling the
+# two lets the common case (candidate genuinely finished) return fast,
+# while the safety margin below still protects against truncation.
+ANSWER_SETTLE_S = 2.0
+
+# Once in the safety-extension phase (see collect_full_answer), how often
+# to re-check voice/grace state. Fine-grained on purpose -- this is what
+# lets the extension end close to when it actually should, instead of
+# always overshooting to the next multiple of ANSWER_SETTLE_S.
+EXTENSION_POLL_S = 1.0
 
 # Hard ceiling on how long VAD alone can hold the turn open past the
 # silence timer, so a stuck "speaking" state can never wedge the
 # interview waiting forever.
-MAX_EXTRA_WAIT_S = 20.0
+MAX_EXTRA_WAIT_S = 12.0
 
 # Grace period after the candidate stops speaking, before their answer is
 # considered complete. Transcription lags the audio, so text keeps
 # arriving after the voice stops; finalising the moment VAD goes quiet
 # truncates the tail of the answer.
-POST_SPEECH_GRACE_S = 3.0
+POST_SPEECH_GRACE_S = 2.5
 
 # Below this many words, a transcript is treated as a noise blip rather
 # than an answer, and the orchestrator keeps listening instead of
@@ -261,32 +272,40 @@ async def run_interview(
         split across two different questions exactly this way.
 
         So: take the first segment, then keep absorbing further segments
-        until the candidate goes quiet for ANSWER_SETTLE_S.
+        until the candidate goes quiet for ANSWER_SETTLE_S. If VAD still
+        disagrees at that point, switch to fine-grained polling
+        (EXTENSION_POLL_S) rather than re-arming the same coarse timeout,
+        so the extension ends as soon as it's actually warranted instead
+        of always overshooting to the next 2s boundary.
         """
         parts = [await answer_queue.get()]
+        poll = ANSWER_SETTLE_S
         extra_waited = 0.0
         while True:
             try:
-                nxt = await asyncio.wait_for(answer_queue.get(), timeout=ANSWER_SETTLE_S)
+                nxt = await asyncio.wait_for(answer_queue.get(), timeout=poll)
                 parts.append(nxt)
+                poll = ANSWER_SETTLE_S
                 extra_waited = 0.0
                 continue
             except asyncio.TimeoutError:
                 pass
 
-
-            # No new transcript for ANSWER_SETTLE_S -- but that alone
+            # No new transcript for `poll` seconds -- but that alone
             # doesn't mean they're done. Two things can still be true:
             #   1. VAD says they're speaking right now.
             #   2. They stopped only a moment ago, and transcription runs
             #      BEHIND the audio, so more text is probably still in
             #      flight ("what I say is getting updated late").
-            # Hold the turn open for either, up to a hard ceiling.
+            # Hold the turn open for either, up to a hard ceiling -- but
+            # poll frequently once we're in this phase, since we're
+            # already past the "probably finished" point.
             still_going = voice["speaking"] or (
                 time.monotonic() - voice["stopped_at"] < POST_SPEECH_GRACE_S
             )
             if still_going and extra_waited < MAX_EXTRA_WAIT_S:
-                extra_waited += ANSWER_SETTLE_S
+                extra_waited += poll
+                poll = EXTENSION_POLL_S
                 continue
 
             return " ".join(p.strip() for p in parts).strip()
