@@ -96,8 +96,20 @@ function drawFace(openness) {
   }
 }
 
-function animate() {
+// Throttled to ~20fps rather than requestAnimationFrame's 60fps. The
+// mouth is a single ellipse -- 60fps buys nothing visually, and this
+// machine's CPU is the binding constraint on the whole call (the agent
+// worker, WebRTC decode and a screen recorder are all competing). Redraw
+// cost was contributing to the audio/turn-taking jitter reported after
+// the avatar was first wired in.
+const FRAME_MS = 50;
+let lastFrame = 0;
+
+function animate(now) {
   requestAnimationFrame(animate);
+  if (now - lastFrame < FRAME_MS) return;
+  lastFrame = now;
+
   if (!analyser) { drawFace(0); return; }
   analyser.getByteFrequencyData(dataArray);
   const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
@@ -105,18 +117,48 @@ function animate() {
   mouthOpenness += (target - mouthOpenness) * 0.35;
   drawFace(mouthOpenness);
 }
-animate();
+requestAnimationFrame(animate);
 
-function wireAvatarToTrack() {
-  const audioEl = document.getElementById("remoteAudio");
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 256;
-  dataArray = new Uint8Array(analyser.frequencyBinCount);
-  const sourceNode = audioCtx.createMediaElementSource(audioEl);
-  sourceNode.connect(analyser);
-  analyser.connect(audioCtx.destination);
-  audioCtx.resume();
+// Created during the Connect click (a real user gesture) -- browsers
+// block/suspend an AudioContext created or resumed outside one, which is
+// why the avatar animated fine standalone in avatar.html (resume() ran
+// straight off the Play button) but sat frozen during a live interview,
+// where the old code called resume() from an async TrackSubscribed
+// callback instead.
+let audioCtx = null;
+
+function ensureAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (audioCtx.state === "suspended") audioCtx.resume();
+}
+
+function wireAvatarToTrack(track) {
+  // Analysis TAP, not a playback path. The previous version called
+  // createMediaElementSource(audioEl), which reroutes the <audio>
+  // element's output through the Web Audio graph -- so the agent's voice
+  // stopped playing natively and instead depended on
+  // analyser -> destination, adding FFT work directly into the audio
+  // path. That degraded audio clarity on this CPU. Here the <audio>
+  // element keeps playing exactly as it did before the avatar existed,
+  // and we read a SEPARATE MediaStream source purely to drive the mouth.
+  // Deliberately never connected to audioCtx.destination -- doing so
+  // would double up the audio.
+  try {
+    ensureAudioContext();
+    const stream = new MediaStream([track.mediaStreamTrack]);
+    const sourceNode = audioCtx.createMediaStreamSource(stream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    sourceNode.connect(analyser);
+    log("avatar wired to agent audio (analysis tap, playback untouched)");
+  } catch (e) {
+    // The interview matters more than the avatar -- never let a
+    // visualization failure take down the call.
+    log(`avatar wiring failed (call continues): ${e.message || e}`);
+  }
 }
 
 // --- LiveKit room connection ---
@@ -132,6 +174,12 @@ connectBtn.addEventListener("click", async () => {
   connectBtn.disabled = true;
   connectBtn.textContent = "Connecting...";
 
+  // MUST happen here, inside the click handler, while we still have a
+  // real user gesture -- see ensureAudioContext()'s note. Creating it
+  // later (from the async TrackSubscribed callback) leaves the context
+  // suspended and the avatar frozen.
+  ensureAudioContext();
+
   const room = new LivekitClient.Room();
 
   room.on(LivekitClient.RoomEvent.Connected, () => log("OK connected to room"));
@@ -140,8 +188,10 @@ connectBtn.addEventListener("click", async () => {
   room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
     log(`subscribed to ${track.kind} track from ${participant.identity}`);
     if (track.kind === "audio") {
+      // Native playback path, exactly as before the avatar existed.
       track.attach(document.getElementById("remoteAudio"));
-      wireAvatarToTrack();
+      // Separate analysis tap for the avatar's mouth.
+      wireAvatarToTrack(track);
     }
   });
   room.on(LivekitClient.RoomEvent.ConnectionStateChanged, (state) => log(`connection state: ${state}`));
