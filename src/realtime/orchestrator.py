@@ -46,7 +46,12 @@ logger = logging.getLogger("firstround.orchestrator")
 # How long the candidate must be quiet before their answer counts as
 # finished. Long enough to survive a mid-sentence breath or a pause to
 # think, short enough that the interview doesn't feel laggy.
-ANSWER_SETTLE_S = 2.5
+ANSWER_SETTLE_S = 4.0
+
+# Hard ceiling on how long VAD alone can hold the turn open past the
+# silence timer, so a stuck "speaking" state can never wedge the
+# interview waiting forever.
+MAX_EXTRA_WAIT_S = 20.0
 
 # Below this many words, a transcript is treated as a noise blip rather
 # than an answer, and the orchestrator keeps listening instead of
@@ -154,6 +159,19 @@ async def run_interview(
 
     session.on("user_input_transcribed", on_user_transcribed)
 
+    # Actual voice-activity state, straight from the session. A fixed
+    # silence timer alone can't tell "finished answering" from "pausing
+    # mid-thought" -- introducing yourself naturally has gaps between
+    # sentences, and a timer-only approach cut people off after their
+    # first sentence. This lets the collector keep waiting while the
+    # candidate is genuinely still speaking.
+    user_speaking = {"now": False}
+
+    def on_user_state(ev) -> None:
+        user_speaking["now"] = ev.new_state == "speaking"
+
+    session.on("user_state_changed", on_user_state)
+
     config = {"configurable": {"thread_id": thread_id}}
     initial_state = make_initial_state(setup.candidate, setup.question_plan)
     result = await setup.app.ainvoke(initial_state, config)
@@ -211,12 +229,22 @@ async def run_interview(
         until the candidate goes quiet for ANSWER_SETTLE_S.
         """
         parts = [await answer_queue.get()]
+        waited_while_speaking = 0.0
         while True:
             try:
                 nxt = await asyncio.wait_for(answer_queue.get(), timeout=ANSWER_SETTLE_S)
+                parts.append(nxt)
+                waited_while_speaking = 0.0
             except asyncio.TimeoutError:
+                # Silence on the transcript stream isn't the same as the
+                # candidate being finished. If VAD still reports them
+                # speaking, keep waiting -- this is what stopped "Hi, my
+                # name is Manal" being submitted as a whole introduction
+                # while the rest of the sentence was still coming.
+                if user_speaking["now"] and waited_while_speaking < MAX_EXTRA_WAIT_S:
+                    waited_while_speaking += ANSWER_SETTLE_S
+                    continue
                 return " ".join(p.strip() for p in parts).strip()
-            parts.append(nxt)
 
     async def next_candidate_answer(question_text: str) -> str:
         """Wait for a REAL answer.
