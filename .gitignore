@@ -3,9 +3,9 @@ __pycache__/
 *.pyc
 .venv/
 venv/
-checkpoints.db
-hitl_checkpoints.db
-hitl_test_checkpoints.db
+*.db
+*.db-shm
+*.db-wal
 output/*.json
 output/prep/*.json
 output/report.pdf

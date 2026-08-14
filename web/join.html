@@ -36,10 +36,17 @@ function log(msg) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
-document.getElementById("connectBtn").addEventListener("click", async () => {
+const connectBtn = document.getElementById("connectBtn");
+connectBtn.addEventListener("click", async () => {
   const url = document.getElementById("url").value.trim();
   const token = document.getElementById("token").value.trim();
   if (!url || !token) { log("ERROR: need both URL and token"); return; }
+
+  // A second click reconnects with the same identity, which LiveKit
+  // resolves by kicking the first session ("disconnected: 2" =
+  // DUPLICATE_IDENTITY). Seen for real during Phase 7 testing.
+  connectBtn.disabled = true;
+  connectBtn.textContent = "Connecting...";
 
   const room = new LivekitClient.Room();
 
@@ -60,9 +67,12 @@ document.getElementById("connectBtn").addEventListener("click", async () => {
     await room.connect(url, token);
     log(`connect() resolved in ${(performance.now() - start).toFixed(0)}ms`);
     await room.localParticipant.setMicrophoneEnabled(true);
-    log("mic published");
+    log("mic published -- waiting for the interviewer to speak");
+    connectBtn.textContent = "Connected";
   } catch (e) {
     log(`ERROR: ${e.message || e}`);
+    connectBtn.disabled = false;
+    connectBtn.textContent = "Connect";
   }
 });
 </script>
