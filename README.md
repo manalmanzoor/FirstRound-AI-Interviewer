@@ -22,8 +22,12 @@ Built solo on the **10-hour compressed track** (`PRD.md` §6A): all 12 core requ
 ---
 
 ## Screenshots
+<img width="635" height="282" alt="image" src="https://github.com/user-attachments/assets/ca3b8463-559a-4950-ade6-425f94231014" />
+<img width="628" height="288" alt="image" src="https://github.com/user-attachments/assets/b971b206-366e-45db-a2ee-a2a47c0a7090" />
 
-*(add screenshots here)*
+
+<img width="633" height="283" alt="image" src="https://github.com/user-attachments/assets/19a92878-849b-49be-b862-fefdcbc665d5" />
+
 
 <!-- Suggested set:
 - Pre-join screen (avatar ring + waveform + room ID)
