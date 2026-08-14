@@ -36,7 +36,9 @@ from pathlib import Path
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.types import Command
 from livekit.agents import AgentSession
+from pydantic import BaseModel
 
+from src.agents.gemini import structured
 from src.graph import build_graph, make_initial_state
 from src.prompts import load_prompt
 
@@ -105,6 +107,50 @@ _REPEAT_REQUEST = re.compile(
 
 def is_repeat_request(text: str) -> bool:
     return bool(_REPEAT_REQUEST.match(text.strip()))
+
+
+# Gemini Live's AudioTranscriptionConfig.language_codes is documented as
+# a HINT, not an enforced pin -- "BCP-47 language codes providing hints
+# about the languages present in the audio." Even with language_codes
+# set to en-US (see agent.py), the transcriber has repeatedly
+# misdetected the candidate's English as another language and phonetically
+# transliterated it into that language's script (e.g. "yes my name is
+# Manal" came back as Telugu script -- the actual sounds spoken, just
+# written in the wrong alphabet). There is no stronger knob in the API
+# for this on the current preview model; this is a real, open limitation
+# of it, not a config mistake.
+#
+# Since it's a SCRIPT problem rather than a translation problem -- the
+# words are still English, just misspelled in another alphabet -- it's
+# recoverable: sound out the script phonetically and you get the English
+# back. Detect it and repair it with one text-model call, gated on
+# actually seeing non-Latin script so ordinary English answers pay no
+# extra latency.
+_NON_LATIN_SCRIPT = re.compile(
+    r"[ऀ-ൿ]"  # Devanagari through Malayalam (covers Hindi, Telugu, etc.)
+)
+
+
+class _TranscriptRepair(BaseModel):
+    corrected_text: str
+
+
+async def repair_transcript_language(text: str) -> str:
+    """If `text` contains non-Latin script, ask Gemini to sound it out
+    back into the English that was actually spoken. No-op (returns text
+    unchanged) for ordinary English transcripts, and falls back to the
+    original text if the repair call itself fails -- a failed repair
+    should never be worse than leaving the mis-transcription as-is."""
+    if not _NON_LATIN_SCRIPT.search(text):
+        return text
+    try:
+        prompt = load_prompt("transcript_language_repair").format(text=text)
+        result = await asyncio.to_thread(structured, prompt, _TranscriptRepair)
+        logger.info(f"  repaired non-English transcript: {text!r} -> {result.corrected_text!r}")
+        return result.corrected_text
+    except Exception as e:
+        logger.warning(f"  transcript language repair failed, using raw text: {e}")
+        return text
 
 
 class InterviewSetup:
@@ -338,6 +384,7 @@ async def run_interview(
         """
         while True:
             answer = await collect_full_answer()
+            answer = await repair_transcript_language(answer)
             stripped = answer.strip()
 
             if is_repeat_request(stripped):

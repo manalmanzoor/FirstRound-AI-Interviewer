@@ -1,0 +1,10 @@
+A speech-to-text engine transcribed spoken English but mis-detected the language, so it phonetically transliterated the English words into a different script (Devanagari, Telugu, Malayalam, Tamil, Kannada, Bengali, Gujarati, Gurmukhi, or Oriya) instead of writing them in the Latin alphabet.
+
+Sound out the text below phonetically and write down the actual English words the speaker said. Do not translate the meaning into another language -- reconstruct the original English sentence purely from how it sounds.
+
+If any part of the text is already in English, keep it as-is. If nothing can be recovered, return the text unchanged.
+
+Text to correct:
+{text}
+
+Respond with only the corrected English sentence, nothing else.
