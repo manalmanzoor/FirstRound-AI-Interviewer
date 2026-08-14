@@ -557,12 +557,74 @@ correctly on bad input -- the answers it saw genuinely were fragments
 like `"introducing you"` and `"Can you repeat again?"`. The scoring
 mechanism was never the problem; the conversation feeding it was.
 
-## Measured Latency (filled in as each piece comes online)
+## Measured Latency
 
-## Known Limitations (filled in honestly as they're found — see PRD §1)
+All measured on the actual dev machine (Intel Celeron N4020, no AVX2) —
+not representative of what this system would run like on normal hardware,
+but honest about what was actually observed, per PRD §1.
 
-- LiveKit WebRTC room connection does not currently work on the dev
-  machine (see Phase 1 above) — reproducible upstream bug, not yet solved.
-- LiveKit's local-inference VAD/turn-detector/EOT stack is unusable on
-  this CPU (SIGILL), so the PRD's own documented Gemini-Live fallback path
-  (Groq Whisper + LiveKit local turn detection) is not available here.
+- **Room connect (successful attempts):** ~3-4s from `room.connect()` call
+  to `connected` state, measured client-side in `web/join.html`'s own
+  `connect() resolved in Nms` log line.
+- **Room connect (failure rate):** the FFI `ReadyForRoomEventRequest`
+  timeout (Phase 1) fired on roughly half of all connection attempts
+  across Phase 1 and Phase 7 combined — intermittent, load-dependent, not
+  eliminated. See "Known Limitations" below.
+- **Barge-in:** not precisely instrumented (no timestamp logging added
+  for interruption latency specifically), but confirmed subjectively
+  responsive by the candidate in both the Phase 1 console-mode test and
+  the real Phase 7 interview -- "interrupting fine" per direct user
+  feedback during the real call.
+- **Offline Gemini calls** (jd_parser/resume_parser/question_planner/
+  scorer, all on `gemini-3.1-flash-lite` after the Phase 3 quota
+  incident): typically a few seconds per call; the real bottleneck was
+  never latency but free-tier rate limits (Phase 3's `DailyQuotaExhausted`
+  finding).
+- **Full real interview duration:** ~11-12 minutes end to end (comfortably
+  past the 8-minute floor, safely under Gemini Live's 15-minute
+  audio-session cap after `TIME_BUDGET_S` was lowered in Phase 7).
+
+## Known Limitations (see PRD §1: honest limitations score points, don't polish them away)
+
+**LiveKit room-connect timeout is intermittent, not solved.** The FFI
+`ReadyForRoomEventRequest` bug (Phase 1) still fires unpredictably —
+observed failing 2 connection attempts in a row during Phase 7's actual
+interview recording, requiring a full worker/room restart each time.
+Bypassing LiveKit Cloud Console's test UI in favor of a custom minimal
+client (`web/join.html`) measurably improved the success rate, but did
+not eliminate the failure mode. Root cause remains this specific CPU
+losing a timed native handshake under any concurrent load (confirmed
+correlated with system CPU sitting at 100%, e.g. multiple browsers +
+editor windows open simultaneously).
+
+**Speech-to-text language detection is unreliable for this candidate's
+accent, and the fix that should have worked didn't fully.** Despite
+correctly identifying and setting `AudioTranscriptionConfig(language_codes=["en-US"])`
+(the RIGHT field, after an earlier attempt set the wrong one --
+`RealtimeModel`'s own top-level `language` param, which governs
+generation, not transcription), individual turns in the real interview
+still transcribed into Devanagari, Telugu, and Malayalam script instead
+of English. Not resolved before submission. Likely needs either a
+different transcription configuration entirely or acceptance that
+Gemini Live's language auto-detection can override an explicit hint for
+certain accent/prosody patterns.
+
+**LiveKit's local-inference VAD/turn-detector/EOT stack is unusable on
+this CPU** (SIGILL on import, see Phase 1 `_compat.py`), so the PRD's
+own documented Gemini-Live fallback path (Groq Whisper + LiveKit local
+turn detection) is not available on this machine if Gemini Live itself
+had turned out unworkable.
+
+**The scorer doesn't always score every competency present in the
+question plan** (Phase 6 finding: the Bluffer eval persona's scorecard
+was missing a `communication` entry every other persona had). The
+evidence_quote field is independently re-verified against the real
+transcript (`guardrails_bridge.py`); competency-set completeness isn't,
+and arguably should be.
+
+**Deprecated LiveKit params still in use.** `AgentSession(allow_interruptions=...,
+discard_audio_if_uninterruptible=...)` are both deprecated in favor of
+`turn_handling=TurnHandlingOptions(...)` (noted since Phase 1). Left as
+functional debt — they still work, and migrating them wasn't worth the
+risk this close to submission given how much of this system's
+reliability already depends on precise LiveKit/Gemini configuration.
