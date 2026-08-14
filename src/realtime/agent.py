@@ -81,7 +81,16 @@ class InterviewerAgent(Agent):
 server = AgentServer(num_idle_processes=1)
 
 
-@server.rtc_session(agent_name="firstround-interviewer")
+# No agent_name => AUTOMATIC dispatch: LiveKit assigns this agent to a
+# room when a participant actually joins it. A *named* agent requires an
+# explicit dispatch up front, which meant the agent joined an empty room
+# the moment the room was minted and then burned its ~5 minute entrypoint
+# timeout waiting for a candidate who hadn't clicked the link yet -- by
+# the time they did, the job was already dead and nothing responded.
+# Repeatedly diagnosed as "the interviewer never speaks". Automatic
+# dispatch removes the race entirely: no waiting in an empty room, so the
+# link can't go stale between minting it and joining.
+@server.rtc_session()
 async def entrypoint(ctx: JobContext):
     # Do our own file I/O / graph-build / SQLite-checkpointer-open BEFORE
     # session.start() -- see orchestrator.py's module docstring for why

@@ -1,12 +1,17 @@
-"""Creates a room + agent dispatch WITHOUT recording enabled, and mints a
-participant token -- testing whether the LiveKit Console's default
-enable_recording=true was adding enough overhead to tip the room-connect
-race against the ~20s FFI timeout (see ARCHITECTURE.md Phase 1).
+"""Mints a join token for a fresh interview room.
+
+Deliberately does NOT create an agent dispatch. src/realtime/agent.py
+registers with automatic dispatch (no agent_name), so LiveKit assigns the
+agent when the candidate actually joins the room. Pre-dispatching was the
+cause of a long-running "the interviewer never speaks" problem: the agent
+would join an empty room immediately, then hit its ~5 minute entrypoint
+timeout waiting for a candidate who hadn't clicked the link yet, leaving
+a dead room behind. With automatic dispatch the link stays valid until
+it's used.
 
 Run: python scripts/mint_lean_room.py
 """
 
-import asyncio
 import os
 import time
 
@@ -19,34 +24,22 @@ URL = os.environ["LIVEKIT_URL"]
 API_KEY = os.environ["LIVEKIT_API_KEY"]
 API_SECRET = os.environ["LIVEKIT_API_SECRET"]
 
-ROOM_NAME = f"firstround-lean-{int(time.time())}"
-AGENT_NAME = "firstround-interviewer"
-IDENTITY = "lean-test-participant"
+ROOM_NAME = f"firstround-{int(time.time())}"
+IDENTITY = "candidate"
 
+token = (
+    api.AccessToken(API_KEY, API_SECRET)
+    .with_identity(IDENTITY)
+    .with_name("Candidate")
+    .with_grants(api.VideoGrants(room_join=True, room=ROOM_NAME))
+    .to_jwt()
+)
 
-async def main():
-    lkapi = api.LiveKitAPI(URL, API_KEY, API_SECRET)
-    try:
-        dispatch = await lkapi.agent_dispatch.create_dispatch(
-            api.CreateAgentDispatchRequest(agent_name=AGENT_NAME, room=ROOM_NAME)
-        )
-        print(f"OK  dispatched agent -> room '{ROOM_NAME}' (dispatch id: {dispatch.id}, no recording requested)")
-    finally:
-        await lkapi.aclose()
-
-    token = (
-        api.AccessToken(API_KEY, API_SECRET)
-        .with_identity(IDENTITY)
-        .with_name("Lean Test")
-        .with_grants(api.VideoGrants(room_join=True, room=ROOM_NAME))
-        .to_jwt()
-    )
-
-    print(f"\nRoom:  {ROOM_NAME}")
-    print(f"URL:   {URL}")
-    print(f"Token: {token}")
-    print(f"\nOpen web/join.html and paste the URL + token above, or open this link:")
-    print(f"file:///C:/Users/abdullah/Desktop/AI-Interviewer/web/join.html?url={URL}&token={token}&room={ROOM_NAME}")
-
-
-asyncio.run(main())
+print(f"Room:  {ROOM_NAME}")
+print(f"URL:   {URL}")
+print("\nThe agent auto-joins when you open this link (no pre-dispatch,")
+print("so it will not go stale while you get ready):\n")
+print(
+    f"file:///C:/Users/abdullah/Desktop/AI-Interviewer/web/join.html"
+    f"?url={URL}&token={token}&room={ROOM_NAME}"
+)
