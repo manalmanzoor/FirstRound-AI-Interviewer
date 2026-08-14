@@ -4,6 +4,7 @@ and their node name, so one real implementation backs all four thin node
 files rather than four copies of the same logic.
 """
 
+import asyncio
 import time
 
 from langgraph.types import interrupt
@@ -103,7 +104,17 @@ async def content_node(state: InterviewState, *, node_name: str, source: str) ->
         "node": node_name, "interrupted": False,
     }
 
-    evaluation = evaluate_answer(text, answer_text, question["competency"])
+    # MUST stay off the event loop. evaluate_answer() -> gemini.structured()
+    # is a synchronous, blocking HTTP call, and on a rate-limit retry it
+    # also does time.sleep(up to 60s). Awaited directly inside the live
+    # agent's event loop it froze everything -- including the Gemini Live
+    # WebSocket's keepalive pings, which the server then dropped with
+    # "1011 keepalive ping timeout / 1006 abnormal closure", killing the
+    # interview mid-call. Found by reading the logs of a real interview
+    # that died after the intro question.
+    evaluation = await asyncio.to_thread(
+        evaluate_answer, text, answer_text, question["competency"]
+    )
     eval_dict = evaluation.model_dump()
     eval_dict["competency"] = question["competency"]
 

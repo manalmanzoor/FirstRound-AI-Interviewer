@@ -73,7 +73,14 @@ class InterviewerAgent(Agent):
         )
 
 
-server = AgentServer()
+# num_idle_processes defaults to 0 in dev mode, so every job logs
+# "no warmed process available for job, waiting for one to be created"
+# and then does all its process setup DURING the room-connect window --
+# exactly when the native FFI layer is racing its
+# ReadyForRoomEventRequest timeout, which this CPU has repeatedly lost
+# (see ARCHITECTURE.md Phase 1; still intermittent, not eliminated).
+# Pre-warming one process moves that setup cost before the race starts.
+server = AgentServer(num_idle_processes=1)
 
 
 @server.rtc_session(agent_name="firstround-interviewer")

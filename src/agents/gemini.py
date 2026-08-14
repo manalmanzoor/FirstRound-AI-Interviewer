@@ -66,7 +66,15 @@ def _retry_delay_s(error: ClientError) -> float:
 
 
 def structured(prompt: str, schema: type[BaseModel]) -> BaseModel:
-    """Call Gemini and parse the response into the given Pydantic model."""
+    """Call Gemini and parse the response into the given Pydantic model.
+
+    BLOCKING. Never call this directly from async code running in the live
+    agent's event loop -- wrap it in asyncio.to_thread(). It makes a
+    synchronous HTTP request and, on a rate-limit retry, time.sleep()s for
+    up to 60s. Blocking the loop starves the Gemini Live WebSocket's
+    keepalive pings and the server drops the call (see
+    src/nodes/_content_node.py and ARCHITECTURE.md Phase 7).
+    """
     last_error = None
     for attempt in range(MAX_RETRIES):
         try:
