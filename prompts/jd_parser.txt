@@ -1,0 +1,7 @@
+Extract structured fields from this job description.
+Be faithful to the source text -- do not invent responsibilities or
+qualifications that aren't there. If a field genuinely isn't present,
+use an empty string or empty list rather than guessing.
+
+JOB DESCRIPTION:
+{jd_text}

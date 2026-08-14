@@ -20,6 +20,8 @@ from livekit import agents
 from livekit.agents import Agent, AgentServer, AgentSession, JobContext
 from livekit.plugins import google
 
+from src.prompts import load_prompt
+
 from .orchestrator import run_interview, setup_interview
 
 load_dotenv()
@@ -31,14 +33,7 @@ logger = logging.getLogger("firstround.realtime")
 # gemini-3.1-flash-live-preview (breaks multi-turn calls in this plugin).
 LIVE_MODEL_ID = "gemini-2.5-flash-native-audio-preview-12-2025"
 
-INSTRUCTIONS = (
-    "You are FirstRound, an AI technical interviewer conducting a live "
-    "voice interview for a Junior AI Engineer role at Northwind Labs. "
-    "Speak naturally and concisely -- this is a spoken conversation, not "
-    "text chat. You will be told exactly what to say by the interview "
-    "orchestrator; say it close to word-for-word rather than improvising "
-    "your own questions."
-)
+INSTRUCTIONS = load_prompt("interviewer_agent")
 
 
 class InterviewerAgent(Agent):

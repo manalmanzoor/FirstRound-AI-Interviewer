@@ -1,0 +1,140 @@
+{
+  "turns": [
+    {
+      "speaker": "agent",
+      "text": "Hi, thanks for joining. I'm the AI interviewer for the Junior AI Engineer role at Northwind Labs. To start, could you introduce yourself and give a quick overview of your background?",
+      "timestamp_ms": 1786705859840,
+      "node": "intro",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "Yes, my name is Milan.",
+      "timestamp_ms": 1786705859840,
+      "node": "intro",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "In your aiseasonlead-mid-task repository, specifically in app.py, you implemented a Flask server that runs an agent in a background thread and streams logs via Server-Sent Events. Could you explain your approach to managing thread safety and handling memory or job state cleanup via the _prune_jobs function in a production environment?",
+      "timestamp_ms": 1786705896306,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "I am a student at Counselor University. I have build drug projects and also multi agent projects. \u0906\u0930 \u0905\u092a\u0932\u094b\u0921\u0947\u0921 \u0911\u0928 \u092e\u093e\u092f \u0917\u0947\u091f \u0939\u0949\u092e \u090f\u0902\u0921 \u0906\u0908 \u0939\u0948\u0935 \u0906\u0932\u094d\u0938\u094b \u0921\u0928 \u0938\u092e \u0935\u0930\u094d\u0915 \u0911\u0928 \u092b\u093f\u0917\u092e\u093e",
+      "timestamp_ms": 1786705896306,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "How would you adapt this background thread queue architecture if migrating to an asynchronous backend framework like FastAPI?",
+      "timestamp_ms": 1786705907636,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "<noise>",
+      "timestamp_ms": 1786705907636,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "Can you go a bit deeper on that -- what specifically did you do, and why that approach?",
+      "timestamp_ms": 1786705954587,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "Stop.",
+      "timestamp_ms": 1786705954587,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "In RAHBAR-ai-mobile-app/server.ts, you initialized the Gemini client using TypeScript/Express to proxy weather API data and run agent logic. Since the Junior AI Engineer role at Northwind Labs focuses heavily on FastAPI, why did you choose Express over Python/FastAPI for this project, and how would you refactor this file to run under a FastAPI server?",
+      "timestamp_ms": 1786706000489,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "Stop it.",
+      "timestamp_ms": 1786706000489,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "What are the latency benefits of using FastAPI's asynchronous support when handling concurrent API calls to external services like Gemini?",
+      "timestamp_ms": 1786706265298,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "\u0c35\u0c28\u0c4d \u0c2e\u0c48 \u0c2b\u0c3e\u0c38\u0c4d\u0c1f\u0c4d \u0c0f\u0c2a\u0c40\u0c2f\u0c30\u0c4d \u0c0e\u0c02\u0c2a\u0c4d\u0c1f\u0c4d \u0c15\u0c3e\u0c32\u0c4d\u0c38\u0c4d \u0c1c\u0c2e\u0c3f\u0c28\u0c48 \u0c26 \u0c30\u0c3f\u0c15\u0c4d\u0c35\u0c46\u0c38\u0c4d\u0c1f\u0c4d \u0c07\u0c38\u0c4d \u0c2e\u0c4b\u0c38\u0c4d\u0c1f\u0c4d\u0c32\u0c40 \u0c07\u0c28\u0c4d\u0c2a\u0c41\u0c1f\u0c4d \u0c05\u0c35\u0c41\u0c1f\u0c4d\u0c2a\u0c41\u0c1f\u0c4d \u0c2c\u0c4c\u0c02\u0c21\u0c4d \u0c2c\u0c3f\u0c15\u0c3e\u0c38\u0c4d \u0c2f\u0c41 \u0c06\u0c30\u0c4d \u0c35\u0c46\u0c2f\u0c3f\u0c1f\u0c3f\u0c02\u0c17\u0c4d \u0c2b\u0c30\u0c4d \u0c0e\u0c15\u0c4d\u0c38\u0c4d\u0c1f\u0c30\u0c4d\u0c28\u0c32\u0c4d \u0c0f\u0c30\u0c3f\u0c2f\u0c3e \u0c30\u0c46\u0c38\u0c4d\u0c2a\u0c3e\u0c28\u0c4d\u0c38\u0c4d",
+      "timestamp_ms": 1786706265298,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "Can you go a bit deeper on that -- what specifically did you do, and why that approach?",
+      "timestamp_ms": 1786706287221,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "first ABC support asynchronous and points the server doesn't have to block a worker while waiting for Gemini it can handle the incoming request so it improves the overall throughput.",
+      "timestamp_ms": 1786706287221,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "In your RAG-RedTeam-Toolkit, commit d61cdca1 describes adding an AI red-teaming toolkit and a five-layer guardrail stack to harden a multimodal RAG system. Could you explain the architecture of these five guardrail layers? What latency impact did you observe, and how did you balance high security with responsive user interactions?",
+      "timestamp_ms": 1786706474706,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "in one of my base projects I thought of architecture in five main layers. The first layer was user interaction layer and then where the user interacts with the chart board, the second was API and security layer where fast API handled syndication validation. The third air was the rad layer the user was converted into an imbedding relevant documents were retrieved from the vector database and applied metadata and permission filters before passing anything to the LLM. The fourth layer was the LLM and orchestration layer where I managed the prompt and if the new",
+      "timestamp_ms": 1786706474706,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "In your Dualbook-Voice-Agent project, specifically run_dashboard.py, you created a single server handling both an anonymous customer booking flow and an authenticated owner console. How did you design the state sharing and synchronization between the real-time voice channel and the Flask owner dashboard?",
+      "timestamp_ms": 1786706533839,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "No we can continue.",
+      "timestamp_ms": 1786706533839,
+      "node": "github_deepdive",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "Thanks so much for your time today -- that's everything on my end. We'll follow up with next steps soon. Have a great rest of your day!",
+      "timestamp_ms": 1786706535976,
+      "node": "wrap_up",
+      "interrupted": false
+    }
+  ],
+  "guardrail_flags": [],
+  "github_grounded_questions_asked": 4,
+  "duration_seconds": 705
+}

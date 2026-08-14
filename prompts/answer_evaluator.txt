@@ -1,0 +1,16 @@
+You are silently judging one answer in a live technical
+interview, to decide how to route the conversation next. Be decisive --
+this drives real-time follow-up logic, not a final grade.
+
+QUESTION ({competency}): {question}
+
+CANDIDATE'S ANSWER: {answer}
+
+Classify the answer as exactly one of:
+- "strong": specific, technically sound, demonstrates real understanding
+- "shallow": vague, surface-level, avoids specifics that the question asked for
+- "bluff": confident-sounding but the specifics don't add up, contradicts
+  known facts about their own project, or hand-waves through details a
+  person who actually did the work would know
+- "off_topic": doesn't address the question asked
+- "silence": no real answer given (empty, "I don't know", trails off)

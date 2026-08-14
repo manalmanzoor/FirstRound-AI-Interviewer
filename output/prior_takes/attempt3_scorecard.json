@@ -1,0 +1,51 @@
+{
+  "candidate_name": "MANAL MANZOOR",
+  "role": "Junior AI Engineer",
+  "interview_date": "2026-08-14",
+  "duration_seconds": 705,
+  "competencies": [
+    {
+      "name": "technical_depth",
+      "score": 2,
+      "confidence": 0.8,
+      "evidence_quote": "first ABC support asynchronous and points the server doesn't have to block a worker while waiting for Gemini it can handle the incoming request so it improves the overall throughput.",
+      "reasoning": "The candidate provided a high-level, correct explanation of asynchronous I/O in FastAPI regarding non-blocking behavior. However, they were unable to answer multiple prior technical questions, frequently provided non-responsive answers (e.g., repeating basic resume details when asked about system design), and used foreign language scripts at points, showing a significant lack of depth."
+    },
+    {
+      "name": "system_design",
+      "score": 1,
+      "confidence": 0.9,
+      "evidence_quote": "I am a student at Counselor University. I have build drug projects and also multi agent projects.",
+      "reasoning": "The candidate failed to address the system design questions entirely, responding with irrelevant biographical information instead of explaining thread safety or job pruning in their provided codebase."
+    },
+    {
+      "name": "problem_solving",
+      "score": 1,
+      "confidence": 0.9,
+      "evidence_quote": "No we can continue.",
+      "reasoning": "The candidate consistently failed to engage with the technical challenges posed. They were unable to articulate the architecture or trade-offs behind their projects when questioned, often avoiding the topic or offering non-sequiturs."
+    },
+    {
+      "name": "communication",
+      "score": 1,
+      "confidence": 0.9,
+      "evidence_quote": "Stop.",
+      "reasoning": "The candidate exhibited poor communication skills, including responding to technical questions with 'Stop' or 'Stop it', and frequently provided irrelevant answers that did not address the prompt."
+    }
+  ],
+  "overall_score": 1.2,
+  "recommendation": "no_hire",
+  "recommendation_reasoning": "The candidate demonstrated a profound inability to engage with the technical interview process. They frequently provided irrelevant responses, used non-English characters in technical answers, and exhibited aggressive or dismissive behavior toward the interviewer. Aside from one basic definition of async I/O, there was no evidence of the technical competence required for a Junior AI Engineer role.",
+  "strengths": [
+    "Understands the high-level benefit of asynchronous I/O in FastAPI (non-blocking workers)."
+  ],
+  "concerns": [
+    "Repeatedly failed to answer technical questions.",
+    "Aggressive and unprofessional communication style ('Stop', 'Stop it').",
+    "Inability to explain their own GitHub project architecture.",
+    "Provided irrelevant biographical information instead of technical content.",
+    "Used non-English characters/scripts during the technical assessment."
+  ],
+  "guardrail_flags": [],
+  "github_grounded_questions_asked": 4
+}

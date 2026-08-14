@@ -37,6 +37,7 @@ from langgraph.types import Command
 from livekit.agents import AgentSession
 
 from src.graph import build_graph, make_initial_state
+from src.prompts import load_prompt
 
 ROOT = Path(__file__).resolve().parents[2]
 DB_PATH = ROOT / "interview_checkpoints.db"
@@ -129,10 +130,7 @@ async def run_interview(session: AgentSession, setup: InterviewSetup, thread_id:
         """
         await session.interrupt()
         if verbatim:
-            instructions = (
-                "Ask the candidate exactly this question, word-for-word, "
-                f"with no paraphrasing and no extra commentary: {text!r}"
-            )
+            instructions = load_prompt("orchestrator_ask_verbatim").format(text=text)
         else:
             instructions = text
         await session.generate_reply(instructions=instructions)

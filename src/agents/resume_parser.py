@@ -10,21 +10,14 @@ from pathlib import Path
 
 import pdfplumber
 
+from src.prompts import load_prompt
+
 from .gemini import structured
 from .schemas import Resume
 
 ROOT = Path(__file__).resolve().parents[2]
 
-PROMPT_TEMPLATE = """Extract structured fields from this resume text
-(raw-extracted from a PDF, so spacing/line breaks may be imperfect).
-Be faithful to the source -- do not invent experience, projects, or
-skills that aren't present. github_handle should be just the username
-(no URL, no "github.com/" prefix). If a field genuinely isn't present,
-use an empty string or empty list.
-
-RESUME TEXT:
-{resume_text}
-"""
+PROMPT_TEMPLATE = load_prompt("resume_parser")
 
 
 def extract_pdf_text(pdf_path: Path) -> str:

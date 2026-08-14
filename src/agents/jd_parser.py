@@ -3,19 +3,14 @@
 import json
 from pathlib import Path
 
+from src.prompts import load_prompt
+
 from .gemini import structured
 from .schemas import JobDescription
 
 ROOT = Path(__file__).resolve().parents[2]
 
-PROMPT_TEMPLATE = """Extract structured fields from this job description.
-Be faithful to the source text -- do not invent responsibilities or
-qualifications that aren't there. If a field genuinely isn't present,
-use an empty string or empty list rather than guessing.
-
-JOB DESCRIPTION:
-{jd_text}
-"""
+PROMPT_TEMPLATE = load_prompt("jd_parser")
 
 
 def parse_jd(input_path: Path | None = None, output_path: Path | None = None) -> JobDescription:

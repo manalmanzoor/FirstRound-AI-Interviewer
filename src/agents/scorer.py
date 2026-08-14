@@ -14,52 +14,15 @@ import json
 from datetime import date
 from pathlib import Path
 
+from src.prompts import load_prompt
+
 from .gemini import structured
 from .guardrails_bridge import validate_scorecard_evidence
 from .schemas import Scorecard
 
 ROOT = Path(__file__).resolve().parents[2]
 
-PROMPT_TEMPLATE = """You are scoring a completed technical interview. This
-is the actual product of this whole system -- score honestly, not
-generously.
-
-THE SINGLE MOST IMPORTANT RULE: a confident-sounding but wrong or
-hand-wavy answer must score LOWER than a hesitant but technically
-correct one. Fluency and confidence are not signals of competence --
-substance is. If a guardrail flag below says "possible_bluff" for a
-competency, that is a strong signal that competency's score and
-confidence should be LOW, regardless of how fluent the answer sounded.
-
-For every competency you score:
-- evidence_quote MUST be an exact, verbatim quote from one of the
-  CANDIDATE's turns in the transcript below (not paraphrased, not from
-  the agent's turns). A score whose evidence can't be found verbatim in
-  the transcript will be rejected downstream.
-- score is 1-5 (1=poor, 3=adequate, 5=excellent).
-- confidence (0.0-1.0) reflects how confident *you* are in this specific
-  score given the evidence available, not the candidate's confidence.
-- reasoning should reference the specific evidence, not restate generic
-  interview advice.
-
-overall_score: a 0.0-5.0 weighted sense of the whole interview.
-recommendation: one of "strong_hire", "hire", "borderline", "no_hire".
-recommendation_reasoning should be specific to this candidate's actual
-answers, not generic.
-strengths/concerns: specific, evidence-backed, not generic platitudes.
-
-CANDIDATE: {candidate_name}
-ROLE: {role}
-GUARDRAIL FLAGS FROM THE LIVE INTERVIEW (bluffs already detected,
-banned questions already blocked): {guardrail_flags}
-GITHUB-GROUNDED QUESTIONS ASKED: {github_grounded_questions_asked}
-
-QUESTION PLAN (for competency/source context):
-{question_plan_json}
-
-FULL TRANSCRIPT:
-{transcript_json}
-"""
+PROMPT_TEMPLATE = load_prompt("scorer")
 
 
 def score_interview(

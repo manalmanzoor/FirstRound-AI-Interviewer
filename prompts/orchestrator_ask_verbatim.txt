@@ -1,0 +1,1 @@
+Ask the candidate exactly this question, word-for-word, with no paraphrasing and no extra commentary: {text!r}
