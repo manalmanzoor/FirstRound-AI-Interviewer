@@ -6,3 +6,5 @@ requests
 pdfplumber
 pydantic
 reportlab
+langgraph
+langgraph-checkpoint-sqlite

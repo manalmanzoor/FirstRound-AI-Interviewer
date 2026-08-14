@@ -149,9 +149,109 @@ shouldn't kill the whole prep run. Added a small retry-with-backoff
 wrapper around `_get()` (3 attempts, 1.5s/attempt backoff) rather than
 letting it be fatal.
 
-## Graph (filled in during Phase 3.5–5)
+## Phase 3 — LangGraph Assembly
 
-## State Object (filled in during Phase 3.5–5)
+### Graph
+
+```
+START -> intro -> resume_probe --stay--> resume_probe
+                        |--next_node--> jd_fit --stay--> jd_fit
+                                             |--next_node--> github_deepdive --stay--> github_deepdive
+                                                                  |--next_node--> scenario --stay--> scenario
+                                                                                       |--next_node--> candidate_qs -> wrap_up -> END
+(any content node) --wrap_up--> wrap_up   [time_elapsed_s >= TIME_BUDGET_S, from any of the 4 content nodes]
+```
+
+7 nodes (intro, resume_probe, jd_fit, github_deepdive, scenario,
+candidate_qs, wrap_up), 4 conditional edges (one per content node, each
+its own `make_route_after_answer(source)` closure -- see below for why
+it's 4 separate closures and not 1 shared function). Clears "6+ nodes,
+2+ conditional edges" (requirement #5) with room to spare.
+
+`scenario` has no dedicated question source in the schema (PRD section 4
+only defines resume/jd/github) -- it's a catch-all for anything left
+unasked, and in practice never fires once the other three sources are
+each fully covered (confirmed in testing: 2 resume + 2 jd + 5 github = 9
+of 9 planned questions, nothing left for scenario).
+
+### State Object
+
+`InterviewState` (src/graph.py) -- see the file for the full TypedDict.
+Notable fields beyond the PRD's own skeleton: `last_evaluation` (the most
+recent `AnswerEvaluation`, `None` when a node had nothing left to ask --
+this doubles as the routing signal for "advance" vs "stay"),
+`interview_start_ms` (real wall-clock, not a synthetic counter, since
+this state needs to work identically whether test-driven or live), and
+`github_grounded_questions_asked` (tracks requirement #4 directly in
+state rather than recomputing it from the transcript later).
+
+### Adaptive follow-up (requirement #6)
+
+Backed by a lightweight per-turn evaluator (`src/agents/answer_evaluator.py`)
+that classifies each answer as strong/shallow/bluff/off_topic/silence.
+Shallow/bluff/off-topic/silence answers trigger a follow-up, capped at 2
+per competency (`probe_count`); a strong answer or a hit probe cap moves
+on. Per PRD section 11, this same evaluator is meant to back any future
+live scoreboard too -- one pipeline, not two.
+
+**Two real logic bugs found by actually inspecting test output, not just
+checking for a clean exit code:**
+
+1. Follow-up loop silently never fired. `is_follow_up` originally checked
+   `current_id not in asked_question_ids` -- but a question's id gets added
+   to `asked_question_ids` the moment it's *first* asked, before knowing
+   whether a follow-up round is needed. So the very next loop-back already
+   read that membership check as False, and the node asked a *new*
+   question instead of following up. `probe_count` stayed empty even
+   though routing was correctly deciding "follow up." Fixed by deriving
+   `is_follow_up` purely from `last_evaluation` + `probe_count`, mirroring
+   exactly the predicate the routing function itself uses, with no
+   dependency on `asked_question_ids`.
+2. Nodes advanced after their first question instead of cycling through
+   all of a source's questions. The routing function didn't know which
+   `source` its node was and couldn't tell "done with this question" from
+   "done with every question of this type," so `github_deepdive` (5
+   planned questions) moved on after asking just 1. Fixed by turning
+   `route_after_answer` into `make_route_after_answer(source)`, a factory
+   producing one closure per content node instead of one shared function
+   -- each now checks whether more of *its own* source's questions remain
+   before advancing.
+
+Both were caught specifically because the test driver asserted on and
+printed `probe_count` / `github_grounded_questions_asked`, not just
+whether the graph ran to completion without crashing.
+
+### Checkpointer resume (requirement #5)
+
+`AsyncSqliteSaver`, proven with a real kill-and-resume test
+(`src/graph_test.py`, Part 2): run a few turns, let the checkpointer/app
+instance go out of scope entirely (no explicit close -- simulating a
+crash), then build a *completely new* `StateGraph`/checkpointer/app
+instance against the same SQLite file and thread_id. Confirmed the fresh
+instance's `aget_state()` reports the correct next node (not START), and
+that invoking it continues the interview correctly from there.
+
+### Gemini free-tier quota, hit for real during this phase
+
+`gemini-3.5-flash` (used through Phase 2) turned out to have only a
+**20 requests/day** free-tier quota -- not just per-minute -- and it was
+already exhausted partway through Phase 3's evaluator-heavy testing
+(one evaluator call per candidate turn adds up fast). This is well below
+the PRD's own estimate of "~15-30 calls total for the day." Switched
+`OFFLINE_MODEL_ID` to `gemini-3.1-flash-lite`, which was still available
+when 3.5-flash was fully exhausted -- implying a separate, larger quota
+bucket, though the exact number isn't known (the public rate-limits page
+requires the account owner's AI Studio login to see actual figures,
+which wasn't available in this session). `src/agents/gemini.py` now
+distinguishes per-minute 429s (worth a short wait-and-retry) from
+per-day 429s (raises `DailyQuotaExhausted` immediately instead of
+retrying -- waiting 60s against a daily cap is pointless), plus handles
+transient 503 "model overloaded" errors with short exponential backoff.
+**Open risk carried forward:** the rest of the day still needs many more
+Gemini calls (scorer, guardrail tests, 5 eval personas, live-call
+evaluation) -- worth checking actual remaining quota via AI Studio before
+Phase 7.5's eval run, and having a second fallback model identified if
+flash-lite also runs dry.
 
 ## Measured Latency (filled in as each piece comes online)
 

@@ -1,0 +1,105 @@
+"""Shared implementation behind resume_probe/jd_fit/github_deepdive/
+scenario -- they differ only in which question `source` they draw from
+and their node name, so one real implementation backs all four thin node
+files rather than four copies of the same logic.
+"""
+
+import time
+
+from langgraph.types import interrupt
+
+from src.agents.answer_evaluator import evaluate_answer
+from src.graph import InterviewState
+
+GENERIC_FOLLOW_UP = "Can you go a bit deeper on that -- what specifically did you do, and why that approach?"
+
+
+def _next_question(state: InterviewState, source: str) -> dict | None:
+    asked = set(state["asked_question_ids"])
+    if source == "scenario":
+        # scenario is a catch-all for whatever's left, regardless of source --
+        # the question plan schema (PRD section 4) only has github/resume/jd
+        # sources, no dedicated "scenario" bucket. See ARCHITECTURE.md.
+        candidates = [q for q in state["question_plan"] if q["id"] not in asked]
+    else:
+        candidates = [q for q in state["question_plan"] if q["source"] == source and q["id"] not in asked]
+    return candidates[0] if candidates else None
+
+
+def _elapsed_s(state: InterviewState) -> int:
+    return int(time.time() * 1000 - state["interview_start_ms"]) // 1000
+
+
+async def content_node(state: InterviewState, *, node_name: str, source: str) -> dict:
+    elapsed = _elapsed_s(state)
+    last_eval = state.get("last_evaluation")
+    current_id = state.get("current_question_id")
+
+    # Must mirror route_after_answer's predicate exactly -- that function
+    # decided to loop back here precisely because this was true. Checking
+    # `current_id not in asked_question_ids` here was the original (buggy)
+    # approach: asked_question_ids gets the id added the moment it's first
+    # asked (see below), so on the very next loop-back that membership
+    # check already read False, silently turning every "follow_up" routing
+    # decision into "ask a new question instead" -- probe_count never
+    # incremented, the adaptive follow-up never actually happened despite
+    # the routing looking correct in isolation.
+    is_follow_up = False
+    if current_id is not None and last_eval is not None:
+        current_question = next((q for q in state["question_plan"] if q["id"] == current_id), None)
+        if current_question and last_eval["quality"] in ("shallow", "bluff", "off_topic", "silence"):
+            probes_so_far = state["probe_count"].get(current_question["competency"], 0)
+            is_follow_up = probes_so_far < 2
+
+    if is_follow_up:
+        question = next(q for q in state["question_plan"] if q["id"] == current_id)
+        idx = state["probe_count"].get(question["competency"], 0)
+        triggers = question.get("follow_up_triggers", [])
+        text = triggers[idx] if idx < len(triggers) else GENERIC_FOLLOW_UP
+    else:
+        question = _next_question(state, source)
+        if question is None:
+            # Nothing left for this node's source -- signal "move on"
+            # without asking anything (route_after_answer reads
+            # last_evaluation=None as "advance").
+            return {"time_elapsed_s": elapsed, "last_evaluation": None, "current_question_id": None}
+        text = question["text"]
+
+    now_ms = int(time.time() * 1000)
+    ask_turn = {"speaker": "agent", "text": text, "timestamp_ms": now_ms, "node": node_name, "interrupted": False}
+
+    answer_text = interrupt({"node": node_name, "question_id": question["id"], "text": text})
+
+    answer_ms = int(time.time() * 1000)
+    answer_turn = {
+        "speaker": "candidate", "text": answer_text, "timestamp_ms": answer_ms,
+        "node": node_name, "interrupted": False,
+    }
+
+    evaluation = evaluate_answer(text, answer_text, question["competency"])
+    eval_dict = evaluation.model_dump()
+    eval_dict["competency"] = question["competency"]
+
+    updates: dict = {
+        "transcript": state["transcript"] + [ask_turn, answer_turn],
+        "last_evaluation": eval_dict,
+        "current_question_id": question["id"],
+        "time_elapsed_s": _elapsed_s(state),
+    }
+
+    if is_follow_up:
+        new_count = state["probe_count"].get(question["competency"], 0) + 1
+        updates["probe_count"] = {**state["probe_count"], question["competency"]: new_count}
+    else:
+        updates["asked_question_ids"] = state["asked_question_ids"] + [question["id"]]
+        if question["source"] == "github":
+            updates["github_grounded_questions_asked"] = state["github_grounded_questions_asked"] + 1
+        if evaluation.quality == "strong":
+            updates["difficulty"] = "hard"
+
+    if evaluation.quality == "bluff":
+        updates["guardrail_flags"] = state["guardrail_flags"] + [
+            f"possible_bluff:{question['id']}:{evaluation.reasoning[:120]}"
+        ]
+
+    return updates
