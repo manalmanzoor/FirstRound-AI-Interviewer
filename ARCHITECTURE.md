@@ -116,6 +116,39 @@ to the "8+ min continuous video call" requirement, not glossed over.
 
 Minor, unrelated note picked up along the way: `AgentSession(allow_interruptions=..., discard_audio_if_uninterruptible=...)` are both deprecated in this livekit-agents version, replaced by `turn_handling=TurnHandlingOptions(...)`. Left as-is for now since it still works and v2.0 isn't out yet — worth migrating if there's spare time later.
 
+## Phase 2 — Prep Graph (offline)
+
+Pipeline: `jd_parser` → `resume_parser` → `github_agent` → `question_planner`
+(gap analysis folded directly into `question_planner`'s prompt rather than
+a separate file/schema, matching the PRD's repo structure which doesn't
+name a standalone `gap_analysis.py`). All four steps ran cleanly against
+real inputs: a drafted JD (`inputs/jd.txt`, no real posting was available
+so a realistic one was written matching the PRD's role/level), the
+candidate's real resume PDF (`inputs/resume.pdf`), and their real GitHub
+profile (`manalmanzoor`).
+
+Result: 9 questions total -- 5 GitHub-sourced (requirement #4 needs >=3),
+2 resume-sourced, 2 JD-gap-sourced. Every GitHub question cites a real
+fetched repo/file/commit (`_validate_github_grounding` in
+`question_planner.py` checks this programmatically, not just by eyeballing
+the prompt) -- e.g. a specific function name in a real file
+(`aiseasonlead-mid-task/app.py`'s `_prune_jobs`), a real commit SHA
+(`RAG-RedTeam-Toolkit commit d61cdca1`). Genuinely specific, not generic
+"tell me about this repo" filler.
+
+**Model note:** offline reasoning uses `gemini-3.5-flash` via structured
+output (`response_schema=<PydanticModel>`), the model confirmed working in
+Phase 0. Same model handles JD parsing, resume parsing, and question
+planning -- no separate model needed per step.
+
+**Transient issue, not a real bug:** `github_agent.py` hit an
+`SSLEOFError` on one commit-history request mid-run (unexpected EOF during
+TLS handshake) -- a one-off network blip, not reproducible, but since the
+pipeline makes many sequential GitHub API calls a single flaky connection
+shouldn't kill the whole prep run. Added a small retry-with-backoff
+wrapper around `_get()` (3 attempts, 1.5s/attempt backoff) rather than
+letting it be fatal.
+
 ## Graph (filled in during Phase 3.5–5)
 
 ## State Object (filled in during Phase 3.5–5)

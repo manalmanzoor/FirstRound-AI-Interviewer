@@ -1,0 +1,69 @@
+Junior AI Engineer
+Northwind Labs — Karachi, Pakistan (Hybrid)
+Experience: 0–2 years
+
+ABOUT NORTHWIND LABS
+
+Northwind Labs builds applied AI products for logistics and customer
+operations teams across South Asia. Our small engineering team ships
+fast, favors working software over long design docs, and expects every
+engineer to own their feature end-to-end — from prototype to production.
+
+ROLE OVERVIEW
+
+We're hiring a Junior AI Engineer to help build and ship LLM-powered
+features across our product line: retrieval-augmented chat, workflow
+automation agents, and voice/conversational interfaces. You'll work
+closely with senior engineers on real production systems from day one,
+not a sandboxed side project.
+
+RESPONSIBILITIES
+
+- Design, build, and iterate on LLM-powered features (RAG pipelines,
+  agents, structured extraction) from prototype through production.
+- Integrate LLM APIs (OpenAI, Anthropic, Google, or open-source models)
+  into existing FastAPI/Python backends and React frontends.
+- Write evaluation scripts and test cases for AI features — we care
+  about measuring quality, not just shipping demos.
+- Collaborate with design/product on human-in-the-loop UX for agentic
+  features: confidence signaling, source grounding, approve/edit/reject
+  flows.
+- Debug and improve prompt reliability, structured-output parsing, and
+  latency in production LLM calls.
+- Contribute to a full-stack codebase as needed (Python backend, React
+  frontend, basic mobile familiarity a plus).
+
+REQUIRED QUALIFICATIONS
+
+- 0–2 years of professional or substantial project experience building
+  software, with hands-on exposure to LLM/AI application development
+  (internship, freelance, coursework, or personal projects all count).
+- Solid Python fundamentals; comfortable reading and writing FastAPI
+  or similar backend code.
+- Practical experience with at least one of: RAG systems, LLM agent
+  frameworks (LangGraph, LangChain, or similar), vector databases, or
+  voice/conversational AI.
+- Familiarity with modern frontend development (React or similar) —
+  we don't expect deep frontend expertise, but you should be able to
+  wire a UI to an API.
+- Comfortable with Git/GitHub workflows and reading others' code.
+- Strong written communication — you'll document tradeoffs and explain
+  technical decisions to non-technical stakeholders.
+
+NICE TO HAVE
+
+- Experience designing human-in-the-loop or trust/transparency UX for
+  AI features (confidence indicators, citation grounding, approve/edit
+  flows).
+- Exposure to multi-modal AI (text + image/table/chart reasoning).
+- Familiarity with Firebase, vector databases, or other lightweight
+  data infrastructure.
+- A portfolio of shipped side projects — we weight demonstrated
+  initiative heavily for junior roles.
+
+WHAT WE OFFER
+
+- Direct mentorship from senior AI/ML engineers.
+- Ownership of real features from week one, not a rotation program.
+- Competitive junior-level compensation for the Karachi market.
+- Hybrid work with flexible hours.

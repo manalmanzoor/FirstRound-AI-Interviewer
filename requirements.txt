@@ -1,4 +1,8 @@
 python-dotenv
 google-genai
 livekit-api
+livekit-agents[google]~=1.5
 requests
+pdfplumber
+pydantic
+reportlab
