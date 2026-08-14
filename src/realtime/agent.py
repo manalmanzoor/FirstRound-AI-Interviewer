@@ -59,12 +59,16 @@ server = AgentServer()
 async def entrypoint(ctx: JobContext):
     session = AgentSession(
         allow_interruptions=True,
-        # Without this, Gemini's native VAD correctly detects the barge-in
-        # and stops generating new audio, but whatever was already queued
-        # on the output track keeps playing -- the agent "finishes its
-        # sentence" instead of cutting off instantly. This flushes that
-        # buffer immediately on interruption.
         discard_audio_if_uninterruptible=True,
+        # Explicit, not left to auto-select: LiveKit's own "adaptive"
+        # interruption mode needs its local Silero VAD model
+        # (livekit-local-inference), which SIGILLs on this CPU and is
+        # stubbed out (see src/realtime/_compat.py). Barge-in worked fine
+        # in local console mode but did not register at all over a real
+        # room -- forcing realtime_llm here tells LiveKit to trust
+        # Gemini Live's own native turn/interrupt signal instead of its
+        # own (broken, on this machine) local VAD layer.
+        turn_detection="realtime_llm",
     )
     await session.start(agent=InterviewerAgent(), room=ctx.room)
     await session.generate_reply(

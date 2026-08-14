@@ -116,6 +116,46 @@ to the "8+ min continuous video call" requirement, not glossed over.
 
 Minor, unrelated note picked up along the way: `AgentSession(allow_interruptions=..., discard_audio_if_uninterruptible=...)` are both deprecated in this livekit-agents version, replaced by `turn_handling=TurnHandlingOptions(...)`. Left as-is for now since it still works and v2.0 isn't out yet — worth migrating if there's spare time later.
 
+### Update (before Phase 7) — both blockers above actually resolved
+
+**Room-connect timeout:** switched from LiveKit Cloud Console's built-in
+"Agents" test UI to a custom minimal client
+(`scripts/mint_lean_room.py` creates the dispatch + token directly via
+the API; `web/join.html` is a bare LiveKit JS SDK page that connects and
+publishes mic audio). This connected successfully on the first try,
+where the Console UI had failed reproducibly 4/4 times. Note: the job
+request still showed `enable_recording: true` even through this custom
+path, which weakens the original "Console enables recording, that's the
+extra overhead" theory -- recording being on isn't actually the
+differentiator. What specifically differs between Console's
+implementation and a raw JS SDK connection is still unknown, but the
+practical fix holds regardless: **don't use the Cloud Console's test UI
+on this machine, use a custom minimal client.**
+
+**Barge-in silently not registering over a real room** (worked in
+console mode, but a real WebRTC room test showed zero interruption
+effect, not just lag): LiveKit's `AgentSession` has two separate
+turn/interrupt systems -- `turn_detection` (stt/vad/**realtime_llm**/manual,
+docstring says auto-select prefers `realtime_llm` when a RealtimeModel is
+available) and a separate `interruption.mode` (`adaptive`/`vad`), where
+`adaptive` is the actual default in dev/Cloud mode per LiveKit's own
+docs and needs their local Silero VAD model -- which lives in exactly
+`livekit-local-inference`, the package stubbed out in Phase 1 because it
+SIGILLs on this CPU (see `src/realtime/_compat.py`). Console mode
+apparently doesn't route through this same adaptive-interruption layer,
+which is why it worked there and nowhere else. Fixed by explicitly
+setting `turn_detection="realtime_llm"` on `AgentSession` instead of
+trusting auto-select -- confirmed working immediately after the change,
+same room, same browser tab. Root cause not fully proven (would need to
+read the adaptive-interruption implementation to confirm it's really the
+stubbed VAD and not something else in the same family of issue), but the
+fix is verified working end-to-end.
+
+**Practical consequence:** both of Phase 1's open risks are closed.
+Phase 7 (the real interview) is unblocked -- room connects reliably via
+the custom client path, and barge-in works over the real network path,
+not just in local console mode.
+
 ## Phase 2 — Prep Graph (offline)
 
 Pipeline: `jd_parser` → `resume_parser` → `github_agent` → `question_planner`

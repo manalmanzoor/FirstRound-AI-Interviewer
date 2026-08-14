@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>FirstRound -- Lean Join Test</title>
+<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+<style>
+  body { background:#0b0c10; color:#eaeaea; font-family: system-ui, sans-serif; padding: 24px; }
+  input { width: 480px; padding: 6px; margin: 4px 0; background:#1a1c22; color:#eaeaea; border:1px solid #333; }
+  button { padding: 8px 16px; margin-top: 8px; }
+  #log { white-space: pre-wrap; background:#14161c; padding:12px; border-radius:8px; margin-top:16px; font-size: 13px; max-height: 400px; overflow-y: auto; }
+</style>
+</head>
+<body>
+  <h2>Lean LiveKit join test (no recording, no Console overhead)</h2>
+  <p>Tests whether the room-connect timeout (ARCHITECTURE.md Phase 1) is avoidable with a minimal client path, bypassing whatever the Cloud Console's test UI adds.</p>
+  <div>
+    <label>LiveKit URL:</label><br/>
+    <input id="url" placeholder="wss://your-project.livekit.cloud" /><br/>
+    <label>Token:</label><br/>
+    <input id="token" placeholder="paste token from scripts/mint_lean_room.py" /><br/>
+    <button id="connectBtn">Connect</button>
+  </div>
+  <div id="log"></div>
+  <audio id="remoteAudio" autoplay></audio>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+if (params.get("url")) document.getElementById("url").value = params.get("url");
+if (params.get("token")) document.getElementById("token").value = params.get("token");
+
+const logEl = document.getElementById("log");
+function log(msg) {
+  const t = new Date().toISOString().split("T")[1].split("Z")[0];
+  logEl.textContent += `[${t}] ${msg}\n`;
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+document.getElementById("connectBtn").addEventListener("click", async () => {
+  const url = document.getElementById("url").value.trim();
+  const token = document.getElementById("token").value.trim();
+  if (!url || !token) { log("ERROR: need both URL and token"); return; }
+
+  const room = new LivekitClient.Room();
+
+  room.on(LivekitClient.RoomEvent.Connected, () => log("OK connected to room"));
+  room.on(LivekitClient.RoomEvent.Disconnected, (reason) => log(`disconnected: ${reason}`));
+  room.on(LivekitClient.RoomEvent.ParticipantConnected, (p) => log(`participant joined: ${p.identity}`));
+  room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
+    log(`subscribed to ${track.kind} track from ${participant.identity}`);
+    if (track.kind === "audio") {
+      track.attach(document.getElementById("remoteAudio"));
+    }
+  });
+  room.on(LivekitClient.RoomEvent.ConnectionStateChanged, (state) => log(`connection state: ${state}`));
+
+  const start = performance.now();
+  log(`connecting to ${url} ...`);
+  try {
+    await room.connect(url, token);
+    log(`connect() resolved in ${(performance.now() - start).toFixed(0)}ms`);
+    await room.localParticipant.setMicrophoneEnabled(true);
+    log("mic published");
+  } catch (e) {
+    log(`ERROR: ${e.message || e}`);
+  }
+});
+</script>
+</body>
+</html>
