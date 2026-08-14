@@ -4,6 +4,8 @@ __pycache__/
 .venv/
 venv/
 checkpoints.db
+hitl_checkpoints.db
+hitl_test_checkpoints.db
 output/*.json
 output/prep/*.json
 output/report.pdf

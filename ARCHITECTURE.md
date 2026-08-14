@@ -253,6 +253,88 @@ evaluation) -- worth checking actual remaining quota via AI Studio before
 Phase 7.5's eval run, and having a second fallback model identified if
 flash-lite also runs dry.
 
+## Phase 4 — Avatar, HITL Gate, MCP Server
+
+### MCP server (requirement #8)
+
+`mcp_server/server.py`, the 5 required tools (`get_candidate`,
+`get_question_plan`, `save_score`, `get_scorecard`, `list_interviews`).
+Single-candidate/single-interview scope matches the actual project --
+`interview_id`/`candidate_id` params exist for interface compliance with
+the PRD's tool contracts, but resolve to the one canonical set of files
+under `output/`, not a multi-tenant store.
+
+**PRD's documented import (`from mcp.server.fastmcp import FastMCP`) is
+stale.** The `mcp` PyPI package (2.0.0, current as of this build) no
+longer ships a `fastmcp` submodule at all -- its internal structure has
+been reorganized (`mcpserver`, `lowlevel`, `apps`, etc., no `fastmcp`).
+The high-level `FastMCP` convenience API the PRD's "FastMCP 3.x" comment
+actually refers to now lives in the separate standalone `fastmcp` PyPI
+package (confirmed: installed version is literally `3.4.7`). Fixed by
+installing `fastmcp` directly and importing `from fastmcp import FastMCP`
+instead. Also note for this version: `@mcp.tool()`-decorated functions
+are callable directly as plain functions in tests (no `.fn` unwrapping
+needed, unlike some other MCP SDK versions).
+
+**Claude Desktop config location is also non-standard on this machine.**
+The documented path (`%APPDATA%\Claude\claude_desktop_config.json`)
+doesn't exist here -- this machine's Claude app is installed as an
+MSIX-packaged Windows app, with its config virtualized to
+`AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json`.
+Added an `mcpServers` key there pointing at the venv's `python.exe` +
+`mcp_server/server.py`, preserving all existing app preferences. Verified
+working live in Claude Desktop: shows up as a connected "firstround"
+tool with 5 tools, and a real `list_interviews` call round-tripped
+correctly through the actual app (not just unit-tested in isolation).
+
+### HITL gate (requirement #7)
+
+`src/hitl.py` -- deliberately reuses the same `interrupt()`/
+`AsyncSqliteSaver` checkpointer pattern proven in Phase 3's interview
+graph, rather than a plain CLI prompt bolted on the side. This is what
+makes the pause "genuine" per the requirement: it's a real graph
+suspension a fresh process can resume, not just a blocking `input()`
+call with no persistence. All three actions (approve/edit/reject) proven
+functionally distinct via `src/hitl_test.py`: approve sets
+`approved_by_human=True` with no changes; edit rewrites specific question
+text by id and logs exactly what changed; reject sets
+`approved_by_human=False` and records a reason. `src/hitl.py`'s own
+`run_interactive()` is the real human-facing CLI (not yet a polished UI
+screen -- per PRD section 11, UI polish is explicitly deferred to Phase
+9, and what's graded here is that the pause and all three actions
+actually work, which they do).
+
+### 2D Avatar (requirement #1, partial)
+
+Built as **pure frontend, standalone from LiveKit** (`web/avatar.html`):
+a canvas-rendered face whose mouth openness is driven live by Web Audio
+API amplitude analysis (`AnalyserNode.getByteFrequencyData`) of whatever
+audio is playing, smoothed frame-to-frame to avoid jitter. This
+deliberately decouples avatar development from the still-unresolved
+LiveKit room-connect bug (Phase 1) -- the lip-sync technique itself
+needs no LiveKit room at all to prove out, only *any* audio source, the
+same way console mode let Gemini Live's barge-in get proven without a
+real room.
+
+Tested against **real Gemini TTS audio**, not a synthetic tone --
+`scripts/generate_tts_sample.py` generates a real clip via
+`gemini-2.5-flash-preview-tts` (`web/sample_tts.wav`). Confirmed working
+by manually loading it in a browser and watching the mouth track the
+speech.
+
+**What's still open:** this is the avatar *technique* proven in
+isolation, not yet wired into the real LiveKit call. The intended full
+picture (per PRD section 2's "pure frontend" framing): the candidate's
+browser (the join page, not yet built) receives the agent's audio track
+over LiveKit like any other participant, and runs this exact same
+amplitude-analysis technique locally against that live track -- no video
+track needs to be published by the Python agent worker at all, which
+also means the avatar doesn't depend on solving the room-connect bug's
+*root cause*, only on the room connecting at all. Wiring this into a
+real join page is deferred alongside the room-connect fix (see Phase 1
+Open/Unresolved) since real end-to-end testing needs a working room
+either way.
+
 ## Measured Latency (filled in as each piece comes online)
 
 ## Known Limitations (filled in honestly as they're found — see PRD §1)

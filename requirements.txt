@@ -8,3 +8,4 @@ pydantic
 reportlab
 langgraph
 langgraph-checkpoint-sqlite
+fastmcp

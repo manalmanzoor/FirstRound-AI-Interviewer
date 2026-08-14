@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>FirstRound Avatar</title>
+<style>
+  body {
+    background: #0b0c10;
+    color: #eaeaea;
+    font-family: system-ui, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 24px;
+  }
+  canvas {
+    background: #14161c;
+    border-radius: 16px;
+  }
+  .controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+  #status {
+    font-size: 14px;
+    opacity: 0.7;
+  }
+</style>
+</head>
+<body>
+  <h2>2D Avatar -- TTS-driven lip-sync (standalone test harness)</h2>
+  <p>
+    Loads any audio file (e.g. a real Gemini TTS clip) and animates the
+    mouth in sync with its live amplitude via the Web Audio API --
+    the same technique that drives the avatar during the real call,
+    just decoupled here from LiveKit so it's testable on its own.
+  </p>
+  <canvas id="face" width="360" height="360"></canvas>
+  <div class="controls">
+    <input type="file" id="audioFile" accept="audio/*" />
+    <button id="playBtn" disabled>Play</button>
+  </div>
+  <div id="status">Load an audio file to begin.</div>
+  <audio id="player" style="display:none"></audio>
+
+<script>
+const canvas = document.getElementById("face");
+const ctx = canvas.getContext("2d");
+const audioFileInput = document.getElementById("audioFile");
+const playBtn = document.getElementById("playBtn");
+const player = document.getElementById("player");
+const statusEl = document.getElementById("status");
+
+let audioCtx, analyser, dataArray, sourceNode;
+let mouthOpenness = 0; // smoothed 0..1
+
+function drawFace(openness) {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+
+  // head
+  ctx.fillStyle = "#f2c9a0";
+  ctx.beginPath();
+  ctx.ellipse(w / 2, h / 2, 120, 140, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // eyes
+  ctx.fillStyle = "#22252c";
+  ctx.beginPath();
+  ctx.ellipse(w / 2 - 45, h / 2 - 30, 10, 14, 0, 0, Math.PI * 2);
+  ctx.ellipse(w / 2 + 45, h / 2 - 30, 10, 14, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // eyebrows
+  ctx.strokeStyle = "#5a4632";
+  ctx.lineWidth = 6;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - 62, h / 2 - 55);
+  ctx.lineTo(w / 2 - 25, h / 2 - 60);
+  ctx.moveTo(w / 2 + 25, h / 2 - 60);
+  ctx.lineTo(w / 2 + 62, h / 2 - 55);
+  ctx.stroke();
+
+  // mouth -- height driven by live audio amplitude (the actual lip-sync)
+  const mouthW = 70;
+  const mouthH = 6 + openness * 55;
+  ctx.fillStyle = "#7a3b3b";
+  ctx.beginPath();
+  ctx.ellipse(w / 2, h / 2 + 55, mouthW / 2, mouthH / 2, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // teeth hint when mouth is more open
+  if (openness > 0.35) {
+    ctx.fillStyle = "#f5f0e6";
+    ctx.beginPath();
+    ctx.ellipse(w / 2, h / 2 + 55 - mouthH / 4, mouthW / 2 - 8, mouthH / 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  if (!analyser) {
+    drawFace(0);
+    return;
+  }
+  analyser.getByteFrequencyData(dataArray);
+  const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+  const target = Math.min(1, avg / 90); // rough amplitude -> openness mapping
+  mouthOpenness += (target - mouthOpenness) * 0.35; // smoothing, avoids jitter
+  drawFace(mouthOpenness);
+}
+
+audioFileInput.addEventListener("change", () => {
+  const file = audioFileInput.files[0];
+  if (!file) return;
+  player.src = URL.createObjectURL(file);
+  playBtn.disabled = false;
+  statusEl.textContent = `Loaded: ${file.name}`;
+
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    dataArray = new Uint8Array(analyser.frequencyBinCount);
+    sourceNode = audioCtx.createMediaElementSource(player);
+    sourceNode.connect(analyser);
+    analyser.connect(audioCtx.destination);
+  }
+});
+
+playBtn.addEventListener("click", () => {
+  audioCtx.resume();
+  player.play();
+  statusEl.textContent = "Playing -- mouth should track the audio.";
+});
+
+player.addEventListener("ended", () => {
+  statusEl.textContent = "Finished.";
+});
+
+animate();
+</script>
+</body>
+</html>
