@@ -1,0 +1,50 @@
+{
+  "candidate_name": "MANAL MANZOOR",
+  "role": "Junior AI Engineer",
+  "interview_date": "2026-08-14",
+  "duration_seconds": 315,
+  "competencies": [
+    {
+      "name": "system_design",
+      "score": 1,
+      "confidence": 0.95,
+      "evidence_quote": "I'm not totally sure, I think I just used a normal dictionary. I don't remember exactly how the cleanup part works, sorry.",
+      "reasoning": "The candidate was unable to explain fundamental concepts like thread safety or job state management in their own codebase, suggesting a lack of depth in how their applications actually function."
+    },
+    {
+      "name": "technical_depth",
+      "score": 1,
+      "confidence": 0.95,
+      "evidence_quote": "I've used FastAPI a little bit but I don't remember the specifics of async sessions, sorry.",
+      "reasoning": "Despite listing FastAPI as a core skill, the candidate could not explain basic FastAPI concepts or justify their technical choices, demonstrating a lack of competency in the stack required for the role."
+    },
+    {
+      "name": "problem_solving",
+      "score": 1,
+      "confidence": 0.95,
+      "evidence_quote": "Yeah it broke sometimes and I'd just rerun it. I didn't build anything fancy for handling errors.",
+      "reasoning": "The candidate relied on manual intervention rather than engineering resilient systems (like handling parsing errors or timeouts in Playwright), which is insufficient for an AI Engineer role."
+    },
+    {
+      "name": "communication",
+      "score": 2,
+      "confidence": 0.8,
+      "evidence_quote": "I think we just sent some extra data back but I don't remember exactly what.",
+      "reasoning": "The candidate was honest about not remembering details, which is better than bluffing, but failed to provide any technical insight into how they handle data communication in their projects."
+    }
+  ],
+  "overall_score": 1.0,
+  "recommendation": "no_hire",
+  "recommendation_reasoning": "The candidate could not explain the architecture, design choices, or technical implementation details of their own projects listed on their resume and GitHub. They demonstrated a lack of fundamental knowledge in Python, FastAPI, and system design, and admitted to having no experience in evaluation systems, which is a critical requirement for this position.",
+  "strengths": [
+    "Honest about knowledge gaps rather than attempting to bluff"
+  ],
+  "concerns": [
+    "Unable to explain core technical implementation of own projects",
+    "Lack of foundational knowledge in required stack (FastAPI, Python)",
+    "No experience with automated testing or evaluation frameworks",
+    "Lack of systematic approach to error handling and production-level development"
+  ],
+  "guardrail_flags": [],
+  "github_grounded_questions_asked": 5
+}

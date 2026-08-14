@@ -417,6 +417,41 @@ Fixed by setting it programmatically after the structured call, the same
 way `duration_seconds`/`guardrail_flags`/`github_grounded_questions_asked`
 already were.
 
+## Phase 6 — Evals (requirement #11)
+
+`evals/personas/generate_personas.py` builds 5 synthetic
+transcript.json-shaped files (Strong/Nervous/Average/Bluffer/Weak), all
+answering the exact same real 9-question plan
+(`output/prep/question_plan.json`, produced from the real resume +
+GitHub data in Phase 2) so the comparison is apples-to-apples rather than
+5 different question sets. `evals/run_evals.py` runs every persona
+through the actual `src/agents/scorer.py` -- the same scorer a real
+interview uses, not a mock or a simplified eval-only path -- and writes
+the ranking table plus honest notes to `evals/results.md`.
+
+**Result: exact expected ranking on the first real run**
+(`strong 4.30 > nervous 3.00 > average 2.00 > bluffer 1.00 = weak 1.00`),
+including the specific test PRD section 1 calls out as the real one:
+bluffer scored below nervous despite Bluffer's answers being written to
+read more fluent and confident than Nervous's. This wasn't tuned to get
+there -- the persona answer text was written once, before ever running
+the scorer, specifically so a clean result couldn't be the product of
+iterating against the output.
+
+That said, two things in the raw output are reported honestly rather
+than smoothed over in `results.md` (PRD section 1: "a suspiciously
+perfect eval table reads as fabricated"):
+- Bluffer and Weak tied at exactly 1.00 -- the core test held, but these
+  are meant to be distinguishable failure modes (actively misleading vs.
+  honestly out of their depth), and a 1-5 scale with every competency
+  floored at 1 has no room left to separate them.
+- Bluffer's scorecard is missing a `communication` competency entry that
+  every other persona has, despite every persona answering the same
+  communication-tagged question (q9) -- the model silently omitted
+  scoring that competency rather than scoring it low. The scorer's
+  evidence_quote is validated downstream (`guardrails_bridge.py`);
+  competency-set completeness currently isn't, and probably should be.
+
 ## Measured Latency (filled in as each piece comes online)
 
 ## Known Limitations (filled in honestly as they're found — see PRD §1)

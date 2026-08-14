@@ -1,0 +1,44 @@
+{
+  "candidate_name": "MANAL MANZOOR",
+  "role": "Junior AI Engineer",
+  "interview_date": "2026-08-14",
+  "duration_seconds": 315,
+  "competencies": [
+    {
+      "name": "system_design",
+      "score": 1,
+      "confidence": 0.95,
+      "evidence_quote": "_prune_jobs just cleans things up automatically, I didn't really need to think about it much, it just works.",
+      "reasoning": "Candidate failed to explain any mechanism for thread safety or resource management, instead relying on hand-wavy claims of 'it just works' which matches the 'possible_bluff' guardrail flag."
+    },
+    {
+      "name": "technical_depth",
+      "score": 1,
+      "confidence": 0.95,
+      "evidence_quote": "Express is just objectively better for this kind of real-time stuff, way faster than FastAPI honestly.",
+      "reasoning": "Candidate provided incorrect information regarding framework performance relative to FastAPI/asyncio and failed to provide any technical details on how to refactor or why FastAPI is preferred for the role."
+    },
+    {
+      "name": "problem_solving",
+      "score": 1,
+      "confidence": 0.9,
+      "evidence_quote": "I used a custom framework I basically designed myself, way more powerful than LangGraph honestly, gave me full control over everything.",
+      "reasoning": "When probed on actual engineering experience, the candidate dismissed industry standards in favor of vaguely described self-made tools without explaining architectural trade-offs."
+    }
+  ],
+  "overall_score": 1.0,
+  "recommendation": "no_hire",
+  "recommendation_reasoning": "The candidate consistently responded to technical questions with generic, confident-sounding platitudes that lacked substance. They demonstrated a pattern of bluffing on technical implementation details (as flagged in the guardrails) and displayed a lack of humility or technical curiosity expected in a Junior AI Engineer. There was no evidence of actual engineering depth or ability to articulate trade-offs in systems design.",
+  "strengths": [],
+  "concerns": [
+    "Repeated technical bluffing and failure to provide evidence for claims.",
+    "Dismissal of industry-standard tools and frameworks without justification.",
+    "Lack of understanding of core concepts like concurrency, thread safety, and evaluation methodologies.",
+    "Over-confidence when discussing complex topics they were unable to explain."
+  ],
+  "guardrail_flags": [
+    "possible_bluff:q1:claims robust concurrent architecture but gives no concrete mechanism",
+    "possible_bluff:q3:claims zero false positives with no evaluation methodology described"
+  ],
+  "github_grounded_questions_asked": 5
+}

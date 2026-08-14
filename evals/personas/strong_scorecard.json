@@ -1,0 +1,50 @@
+{
+  "candidate_name": "MANAL MANZOOR",
+  "role": "Junior AI Engineer",
+  "interview_date": "2026-08-14",
+  "duration_seconds": 315,
+  "competencies": [
+    {
+      "name": "system_design",
+      "score": 4,
+      "confidence": 0.9,
+      "evidence_quote": "I used a threading.Lock around the shared jobs dict so only one thread mutates state at a time, and _prune_jobs runs on a timer thread that walks the dict and evicts anything older than a TTL",
+      "reasoning": "Candidate demonstrates practical understanding of thread safety and state management in a Python context, and correctly identifies the limitations of in-process storage for production."
+    },
+    {
+      "name": "technical_depth",
+      "score": 5,
+      "confidence": 0.95,
+      "evidence_quote": "The five layers were: input sanitization (strip prompt injection patterns), a retrieval-time relevance filter, an output toxicity classifier, a citation-grounding check that rejects ungrounded claims, and a final rate-limiter for abuse patterns.",
+      "reasoning": "Strong technical maturity in RAG pipeline architecture and performance optimization; the insight to run toxicity checks in parallel with generation indicates practical production experience."
+    },
+    {
+      "name": "problem_solving",
+      "score": 4,
+      "confidence": 0.85,
+      "evidence_quote": "I'd hold out a fixed test set with known-correct answers, measure retrieval precision/recall separately from generation quality, and use a rubric-based LLM judge rather than a single overall score",
+      "reasoning": "Shows sound engineering judgment for AI evaluation, correctly identifying the need for component-level metrics and cross-model validation to reduce bias."
+    },
+    {
+      "name": "communication",
+      "score": 4,
+      "confidence": 0.9,
+      "evidence_quote": "Every API response includes a confidence field computed from retrieval similarity scores plus a source list with document IDs and offsets, so the frontend can render inline citations",
+      "reasoning": "Clear, direct communication of technical requirements for human-in-the-loop features; bridges the gap between backend capabilities and UX needs effectively."
+    }
+  ],
+  "overall_score": 4.3,
+  "recommendation": "strong_hire",
+  "recommendation_reasoning": "Manal demonstrates excellent technical clarity, specifically in RAG pipeline design, asynchronous pattern usage, and production-grade system design. She articulates trade-offs well and shows a deep understanding of the practical challenges in building reliable AI systems.",
+  "strengths": [
+    "Practical understanding of concurrency and locking mechanisms.",
+    "Strong grasp of production-level RAG guardrail architecture.",
+    "Ability to explain trade-offs between frameworks like LangGraph and custom state machines.",
+    "Deeply familiar with the requirements for robust AI evaluation."
+  ],
+  "concerns": [
+    "Most production work has been in Flask/Node.js; minor ramp-up expected for pure FastAPI/async-heavy services."
+  ],
+  "guardrail_flags": [],
+  "github_grounded_questions_asked": 5
+}

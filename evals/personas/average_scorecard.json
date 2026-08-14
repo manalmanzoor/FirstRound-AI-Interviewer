@@ -1,0 +1,50 @@
+{
+  "candidate_name": "MANAL MANZOOR",
+  "role": "Junior AI Engineer",
+  "interview_date": "2026-08-14",
+  "duration_seconds": 315,
+  "competencies": [
+    {
+      "name": "system_design",
+      "score": 2,
+      "confidence": 0.9,
+      "evidence_quote": "The voice part and the dashboard both use the same database to store booking info, so the dashboard just reads from there periodically to show updates.",
+      "reasoning": "The candidate provided a very simplistic approach to synchronization involving periodic polling of a database, which is suboptimal for real-time voice and UI state management. Shows a lack of experience with more efficient patterns like WebSockets or Pub/Sub."
+    },
+    {
+      "name": "technical_depth",
+      "score": 2,
+      "confidence": 0.85,
+      "evidence_quote": "I've used FastAPI with SQLAlchemy's async sessions before, injecting the session as a dependency for each request.",
+      "reasoning": "The candidate has superficial knowledge of key concepts but failed to provide any depth when asked about implementation details. The answers regarding FastAPI, async sessions, and guardrail latency were generic and lacked technical rigor."
+    },
+    {
+      "name": "problem_solving",
+      "score": 2,
+      "confidence": 0.9,
+      "evidence_quote": "I'd test against known answers, look at both retrieval and generation quality separately, and try to avoid relying only on the LLM's own judgment of itself.",
+      "reasoning": "The candidate understands the high-level goals of evaluation but did not demonstrate how to actually build a rigorous framework. Answers were vague and lacked specific methodology (e.g., mention of specific evaluation libraries, metrics, or synthetic data techniques)."
+    },
+    {
+      "name": "communication",
+      "score": 3,
+      "confidence": 0.95,
+      "evidence_quote": "The backend sends a confidence score and source info along with each response so the frontend can show that to the user.",
+      "reasoning": "The candidate was clear and concise, though the technical depth of the response was low. They understood the communication requirements of the role but lacked the backend expertise to discuss the implementation details."
+    }
+  ],
+  "overall_score": 2.0,
+  "recommendation": "no_hire",
+  "recommendation_reasoning": "While the candidate presents themselves as an AI engineer, the technical depth demonstrated in the interview was consistently shallow. They rely on high-level concepts and lack the rigor required for production-grade engineering at Northwind Labs. Answers to specific questions regarding architecture, testing, and concurrency were surface-level and lacked necessary implementation detail.",
+  "strengths": [
+    "Awareness of fundamental concepts (e.g., thread safety, asynchronous sessions, importance of evaluation)."
+  ],
+  "concerns": [
+    "Lack of technical depth in explaining implementations.",
+    "Proposed design patterns are suboptimal (e.g., polling database for real-time state).",
+    "Generic, non-specific answers to technical questions despite having direct project experience.",
+    "Failed to demonstrate advanced proficiency in FastAPI or agentic frameworks."
+  ],
+  "guardrail_flags": [],
+  "github_grounded_questions_asked": 5
+}

@@ -1,0 +1,133 @@
+{
+  "turns": [
+    {
+      "speaker": "agent",
+      "text": "In your aiseasonlead-mid-task repository, specifically in app.py, you implemented a Flask server that runs an agent in a background thread and streams logs via Server-Sent Events. Could you explain your approach to managing thread safety and handling memory or job state cleanup via the _prune_jobs function in a production environment?",
+      "timestamp_ms": 0,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "I'm not totally sure, I think I just used a normal dictionary. I don't remember exactly how the cleanup part works, sorry.",
+      "timestamp_ms": 15000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "In RAHBAR-ai-mobile-app/server.ts, you initialized the Gemini client using TypeScript/Express to proxy weather API data and run agent logic. Since the Junior AI Engineer role at Northwind Labs focuses heavily on FastAPI, why did you choose Express over Python/FastAPI for this project, and how would you refactor this file to run under a FastAPI server?",
+      "timestamp_ms": 35000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "I just used what I knew at the time I guess. I haven't really used FastAPI enough to say how I'd change it.",
+      "timestamp_ms": 50000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "In your RAG-RedTeam-Toolkit, commit d61cdca1 describes adding an AI red-teaming toolkit and a five-layer guardrail stack to harden a multimodal RAG system. Could you explain the architecture of these five guardrail layers? What latency impact did you observe, and how did you balance high security with responsive user interactions?",
+      "timestamp_ms": 70000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "I don't remember the specifics of each layer honestly, it's been a while since I looked at that code.",
+      "timestamp_ms": 85000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "In your Dualbook-Voice-Agent project, specifically run_dashboard.py, you created a single server handling both an anonymous customer booking flow and an authenticated owner console. How did you design the state sharing and synchronization between the real-time voice channel and the Flask owner dashboard?",
+      "timestamp_ms": 105000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "I think they both just talk to the same database? I'm not sure about the details of how it's synced.",
+      "timestamp_ms": 120000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "In your aiseasonlead-mid-task project, the agent.py script uses Groq and Playwright to crawl business data and find leads. Playwright can be notoriously fragile due to network delays and dynamic page rendering. How did you handle error recovery, session timeouts, and parsing reliability when the DOM structure changed unexpectedly?",
+      "timestamp_ms": 140000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "Yeah it broke sometimes and I'd just rerun it. I didn't build anything fancy for handling errors.",
+      "timestamp_ms": 155000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "Your resume highlights a key project where you built multi-agent proposal workflows as an AI Intern at AEROX ERP. Did you use an established agent orchestration framework like LangGraph, LangChain, or Autogen, or did you write a custom state machine? What were the engineering tradeoffs of your choice?",
+      "timestamp_ms": 175000,
+      "node": "resume_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "I'm not sure I fully remember why I made that choice, it might have just been what I was comfortable with.",
+      "timestamp_ms": 190000,
+      "node": "resume_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "Your resume lists FastAPI as a core skill, yet your major agentic projects (such as Dualbook and Lead Finder) rely on Flask or Node.js. Can you walk me through a complex FastAPI endpoint you have built, specifically addressing how you managed asynchronous database sessions (e.g. SQLAlchmey, Tortoise) and dependency injection?",
+      "timestamp_ms": 210000,
+      "node": "resume_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "I've used FastAPI a little bit but I don't remember the specifics of async sessions, sorry.",
+      "timestamp_ms": 225000,
+      "node": "resume_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "Northwind Labs prioritizes objective evaluation and testing over simple demos. If you were task with writing automated evaluation scripts for an LLM-powered feature, such as a multimodal RAG system, how would you design a rigorous evaluation suite? What metrics would you measure, and how would you avoid LLM-as-a-judge bias?",
+      "timestamp_ms": 245000,
+      "node": "jd_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "I'm not really sure how I'd design that, I haven't done much with evaluation systems before.",
+      "timestamp_ms": 260000,
+      "node": "jd_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "The JD emphasizes collaboration on human-in-the-loop UX patterns (confidence signaling, source grounding, and edit flows). With your joint background in UI/UX and AI engineering, what technical mechanics do you use on the backend to provide frontend clients with the granular confidence metrics or source metadata required for these UI treatments?",
+      "timestamp_ms": 280000,
+      "node": "jd_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "I think we just sent some extra data back but I don't remember exactly what.",
+      "timestamp_ms": 295000,
+      "node": "jd_probe",
+      "interrupted": false
+    }
+  ],
+  "guardrail_flags": [],
+  "github_grounded_questions_asked": 5,
+  "duration_seconds": 315
+}

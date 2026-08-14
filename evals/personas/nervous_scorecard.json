@@ -1,0 +1,51 @@
+{
+  "candidate_name": "MANAL MANZOOR",
+  "role": "Junior AI Engineer",
+  "interview_date": "2026-08-14",
+  "duration_seconds": 315,
+  "competencies": [
+    {
+      "name": "system_design",
+      "score": 3,
+      "confidence": 0.8,
+      "evidence_quote": "the jobs dict is shared across the request thread and the background thread, so I put a lock around any write to it. _prune_jobs runs periodically and just... it removes entries past a TTL.",
+      "reasoning": "The candidate understands the fundamentals of thread-safe operations in a Python context and correctly identified the trade-off between locking granularity and system performance."
+    },
+    {
+      "name": "technical_depth",
+      "score": 3,
+      "confidence": 0.7,
+      "evidence_quote": "I'd want a held-out test set with known correct answers so I'm not just checking against the same data I built the system with. I'd measure retrieval and generation separately, since if I only look at the final answer I can't tell which part broke.",
+      "reasoning": "Demonstrates a solid conceptual grasp of RAG evaluation pipelines by separating retrieval from generation quality, though the practical experience with advanced orchestration (like LangGraph) or complex FastAPI dependency injection was limited or slightly vague."
+    },
+    {
+      "name": "problem_solving",
+      "score": 3,
+      "confidence": 0.8,
+      "evidence_quote": "I wrote a custom state machine, mostly because I wasn't confident I could get the failure-recovery behavior right in LangGraph at the time.",
+      "reasoning": "The candidate shows an ability to choose pragmatic solutions based on their own skill level at the time of development, rather than blindly reaching for complex tools they didn't fully master."
+    },
+    {
+      "name": "communication",
+      "score": 3,
+      "confidence": 0.9,
+      "evidence_quote": "Each response has a confidence number and a list of sources with where in the document they came from, so the frontend can show citations without a second request.",
+      "reasoning": "Candidate communicates clearly and understands the bridge between backend architecture and UI requirements, though showed hesitation on specific streaming implementation details."
+    }
+  ],
+  "overall_score": 3.0,
+  "recommendation": "hire",
+  "recommendation_reasoning": "Manal demonstrates a solid foundational understanding of AI engineering tasks, including thread management, state machine design, and evaluation logic. While she lacks deep production-grade experience with FastAPI and advanced orchestration frameworks, her answers are grounded in real implementation attempts and she possesses the technical self-awareness to recognize the limitations of her previous approaches.",
+  "strengths": [
+    "Pragmatic approach to engineering choices (choosing custom state machines over complex frameworks she didn't master yet).",
+    "Solid understanding of the separation of concerns in RAG evaluation.",
+    "Good grasp of thread safety and locking mechanisms in Python."
+  ],
+  "concerns": [
+    "Limited hands-on experience with asynchronous FastAPI and dependency injection patterns, despite citing them as core skills.",
+    "Relies on polling (instead of websockets) for state synchronization, indicating a gap in real-time system design knowledge.",
+    "Hesitant on explaining advanced streaming mechanics for frontend integration."
+  ],
+  "guardrail_flags": [],
+  "github_grounded_questions_asked": 5
+}

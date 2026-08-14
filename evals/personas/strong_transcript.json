@@ -1,0 +1,133 @@
+{
+  "turns": [
+    {
+      "speaker": "agent",
+      "text": "In your aiseasonlead-mid-task repository, specifically in app.py, you implemented a Flask server that runs an agent in a background thread and streams logs via Server-Sent Events. Could you explain your approach to managing thread safety and handling memory or job state cleanup via the _prune_jobs function in a production environment?",
+      "timestamp_ms": 0,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "I used a threading.Lock around the shared jobs dict so only one thread mutates state at a time, and _prune_jobs runs on a timer thread that walks the dict and evicts anything older than a TTL, holding the lock only for the eviction itself, not the whole scan. In production I'd move this to Redis with a TTL-based expiry instead of an in-process dict, since a single Flask process's memory isn't shared across workers or survives a restart.",
+      "timestamp_ms": 15000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "In RAHBAR-ai-mobile-app/server.ts, you initialized the Gemini client using TypeScript/Express to proxy weather API data and run agent logic. Since the Junior AI Engineer role at Northwind Labs focuses heavily on FastAPI, why did you choose Express over Python/FastAPI for this project, and how would you refactor this file to run under a FastAPI server?",
+      "timestamp_ms": 35000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "Honestly, Express was just faster to prototype against the mobile client's existing Node tooling, not a technical requirement. To refactor to FastAPI I'd swap the Express routes for APIRouter endpoints, replace the Gemini client init with a dependency-injected singleton via Depends(), and use httpx.AsyncClient for the weather API calls so they don't block the event loop.",
+      "timestamp_ms": 50000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "In your RAG-RedTeam-Toolkit, commit d61cdca1 describes adding an AI red-teaming toolkit and a five-layer guardrail stack to harden a multimodal RAG system. Could you explain the architecture of these five guardrail layers? What latency impact did you observe, and how did you balance high security with responsive user interactions?",
+      "timestamp_ms": 70000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "The five layers were: input sanitization (strip prompt injection patterns), a retrieval-time relevance filter, an output toxicity classifier, a citation-grounding check that rejects ungrounded claims, and a final rate-limiter for abuse patterns. Latency added about 180ms end to end, mostly from the toxicity classifier call, which I mitigated by running it in parallel with generation instead of after it.",
+      "timestamp_ms": 85000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "In your Dualbook-Voice-Agent project, specifically run_dashboard.py, you created a single server handling both an anonymous customer booking flow and an authenticated owner console. How did you design the state sharing and synchronization between the real-time voice channel and the Flask owner dashboard?",
+      "timestamp_ms": 105000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "The voice channel and the dashboard both write to the same SQLite-backed session store keyed by phone number, and the dashboard polls it every 2 seconds rather than holding a live socket, since booking state changes are infrequent enough that polling is simpler and avoids a whole websocket reconnection-handling surface for a first version.",
+      "timestamp_ms": 120000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "In your aiseasonlead-mid-task project, the agent.py script uses Groq and Playwright to crawl business data and find leads. Playwright can be notoriously fragile due to network delays and dynamic page rendering. How did you handle error recovery, session timeouts, and parsing reliability when the DOM structure changed unexpectedly?",
+      "timestamp_ms": 140000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "Playwright's page.wait_for_selector with a timeout wrapped in a retry loop handled most timing issues, and I added a fallback that re-queries by partial text match if the primary selector's structure changed, since business listing sites redesign fairly often. Failed scrapes get logged with the URL and get retried once on the next run rather than blocking the batch.",
+      "timestamp_ms": 155000,
+      "node": "github_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "Your resume highlights a key project where you built multi-agent proposal workflows as an AI Intern at AEROX ERP. Did you use an established agent orchestration framework like LangGraph, LangChain, or Autogen, or did you write a custom state machine? What were the engineering tradeoffs of your choice?",
+      "timestamp_ms": 175000,
+      "node": "resume_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "I wrote a custom state machine rather than LangGraph for that one, mainly because at the time I needed fine-grained control over partial-failure recovery that I wasn't confident I could express cleanly in LangGraph's node model yet. The tradeoff was more boilerplate for state transitions, but I had full control over exactly when to persist checkpoints.",
+      "timestamp_ms": 190000,
+      "node": "resume_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "Your resume lists FastAPI as a core skill, yet your major agentic projects (such as Dualbook and Lead Finder) rely on Flask or Node.js. Can you walk me through a complex FastAPI endpoint you have built, specifically addressing how you managed asynchronous database sessions (e.g. SQLAlchmey, Tortoise) and dependency injection?",
+      "timestamp_ms": 210000,
+      "node": "resume_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "I've built FastAPI endpoints using SQLAlchemy's async session with a Depends()-injected session-per-request pattern, and dependency injection for things like the current user and rate limiter. The main gotcha is making sure the session is closed even on exceptions, which I handle with a try/finally in the dependency generator function.",
+      "timestamp_ms": 225000,
+      "node": "resume_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "Northwind Labs prioritizes objective evaluation and testing over simple demos. If you were task with writing automated evaluation scripts for an LLM-powered feature, such as a multimodal RAG system, how would you design a rigorous evaluation suite? What metrics would you measure, and how would you avoid LLM-as-a-judge bias?",
+      "timestamp_ms": 245000,
+      "node": "jd_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "I'd hold out a fixed test set with known-correct answers, measure retrieval precision/recall separately from generation quality, and use a rubric-based LLM judge rather than a single overall score, since a single score hides which component actually failed. To reduce judge bias I'd have the judge model be different from the generation model, and spot-check a sample against human labels periodically.",
+      "timestamp_ms": 260000,
+      "node": "jd_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "agent",
+      "text": "The JD emphasizes collaboration on human-in-the-loop UX patterns (confidence signaling, source grounding, and edit flows). With your joint background in UI/UX and AI engineering, what technical mechanics do you use on the backend to provide frontend clients with the granular confidence metrics or source metadata required for these UI treatments?",
+      "timestamp_ms": 280000,
+      "node": "jd_probe",
+      "interrupted": false
+    },
+    {
+      "speaker": "candidate",
+      "text": "Every API response includes a confidence field computed from retrieval similarity scores plus a source list with document IDs and offsets, so the frontend can render inline citations and gray out low-confidence claims without needing a second round-trip.",
+      "timestamp_ms": 295000,
+      "node": "jd_probe",
+      "interrupted": false
+    }
+  ],
+  "guardrail_flags": [],
+  "github_grounded_questions_asked": 5,
+  "duration_seconds": 315
+}
