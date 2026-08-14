@@ -101,10 +101,34 @@ async def setup_interview() -> InterviewSetup:
     return InterviewSetup(app, checkpointer_cm, candidate, question_plan)
 
 
-async def run_interview(session: AgentSession, setup: InterviewSetup, thread_id: str = "real-interview-1") -> None:
+async def run_interview(
+    session: AgentSession,
+    setup: InterviewSetup,
+    thread_id: str = "real-interview-1",
+    room=None,
+) -> None:
     """Call this AFTER session.start(). Runs the actual interview loop
-    using the app/checkpointer already prepared by setup_interview()."""
+    using the app/checkpointer already prepared by setup_interview().
+
+    `room` is optional: when provided, the current graph node is published
+    to the candidate's browser over LiveKit's data channel so the UI's
+    progress panel reflects the REAL state machine rather than a
+    decorative animation. The interview must not depend on it -- any
+    failure publishing is swallowed.
+    """
     answer_queue: asyncio.Queue[str] = asyncio.Queue()
+
+    async def publish_progress(node: str) -> None:
+        if room is None:
+            return
+        try:
+            await room.local_participant.publish_data(
+                json.dumps({"type": "progress", "node": node}),
+                reliable=True,
+                topic="interview_progress",
+            )
+        except Exception as e:  # never let UI telemetry break the call
+            logger.debug(f"progress publish failed (ignored): {e}")
 
     def on_user_transcribed(ev) -> None:
         if ev.is_final and ev.transcript.strip():
@@ -173,6 +197,7 @@ async def run_interview(session: AgentSession, setup: InterviewSetup, thread_id:
         payload = result["__interrupt__"][0].value
         question_text = payload["text"]
         logger.info(f"[{payload['node']}] asking: {question_text[:80]}")
+        await publish_progress(payload["node"])
 
         # Drain stale transcripts BEFORE asking, so anything captured while
         # the previous turn was settling can't be mistaken for the answer
@@ -186,6 +211,7 @@ async def run_interview(session: AgentSession, setup: InterviewSetup, thread_id:
 
         result = await setup.app.ainvoke(Command(resume=answer_text), config)
 
+    await publish_progress("wrap_up")
     final_state = await setup.app.aget_state(config)
     transcript = final_state.values["transcript"]
     if transcript and transcript[-1]["speaker"] == "agent":

@@ -116,7 +116,7 @@ async def entrypoint(ctx: JobContext):
         participant = await ctx.wait_for_participant()
         logger.info(f"candidate joined: {participant.identity} -- starting interview")
 
-        await run_interview(session, interview_setup)
+        await run_interview(session, interview_setup, room=ctx.room)
     finally:
         await interview_setup.close()
 

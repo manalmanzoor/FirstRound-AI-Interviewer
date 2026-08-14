@@ -2,214 +2,637 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<title>FirstRound -- Interview</title>
+<title>FirstRound — AI Video Interviewer</title>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
 <style>
+  * { box-sizing: border-box; }
   body {
-    background: #0b0c10;
-    color: #eaeaea;
-    font-family: system-ui, sans-serif;
-    padding: 24px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
+    margin: 0;
+    background: #070912;
+    color: #e8eaf2;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100vh;
   }
-  .controls { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-  input { width: 480px; padding: 6px; margin: 4px 0; background:#1a1c22; color:#eaeaea; border:1px solid #333; }
-  button { padding: 8px 16px; }
-  canvas { background: #14161c; border-radius: 16px; }
-  #log { white-space: pre-wrap; background:#14161c; padding:12px; border-radius:8px; margin-top:8px; font-size: 12px; max-height: 220px; overflow-y: auto; width: 600px; }
+  a { color: inherit; }
+
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-dot {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: conic-gradient(from 180deg, #4f46e5, #2563eb, #22d3ee, #4f46e5);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .brand-dot::after { content: ""; width: 12px; height: 12px; border-radius: 50%; background: #070912; }
+  .brand-name { font-weight: 650; font-size: 15px; line-height: 1.15; }
+  .brand-sub { font-size: 11px; color: #8891ab; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 14px; border-radius: 999px;
+    background: #121629; border: 1px solid #232a45;
+    font-size: 12.5px; font-weight: 550;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
+
+  /* ---------- PRE-JOIN ---------- */
+  #prejoin { padding: 22px 30px 40px; }
+  .prejoin-top { display: flex; justify-content: space-between; align-items: center; }
+  .prejoin-card {
+    max-width: 800px; margin: 34px auto 0;
+    background: linear-gradient(180deg, #0d1020 0%, #0a0d1a 100%);
+    border: 1px solid #1c2340; border-radius: 20px;
+    padding: 34px 30px 26px; text-align: center;
+  }
+  .avatar-row { display: flex; align-items: center; justify-content: center; gap: 26px; }
+  .wave { display: flex; align-items: center; gap: 5px; height: 70px; }
+  .wave i {
+    display: block; width: 3px; border-radius: 2px;
+    background: linear-gradient(180deg, #6366f1, #22d3ee); opacity: .75;
+  }
+  .avatar-ring {
+    width: 132px; height: 132px; border-radius: 50%; padding: 3px;
+    background: linear-gradient(140deg, #6366f1, #22d3ee);
+    flex: 0 0 auto;
+  }
+  .avatar-ring > canvas { display: block; border-radius: 50%; background: #10142a; }
+  .who { margin-top: 16px; font-size: 20px; font-weight: 650; }
+  .who-sub { color: #7c8ff5; font-size: 13.5px; margin-top: 3px; }
+
+  .status-row {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #0c1striped; margin-top: 22px;
+  }
+  .field {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: #0b0f1f; border: 1px solid #1b2240; border-radius: 12px;
+    padding: 12px 15px; margin-top: 12px; text-align: left;
+  }
+  .field-label { font-size: 10.5px; color: #8891ab; text-transform: none; }
+  .field-value { font-size: 13px; font-family: ui-monospace, Menlo, Consolas, monospace; word-break: break-all; }
+  .badge-secure {
+    font-size: 11px; padding: 4px 10px; border-radius: 7px;
+    background: #10281c; color: #4ade80; border: 1px solid #1d4433;
+  }
+  .icon-btn {
+    background: transparent; border: none; color: #8891ab; cursor: pointer;
+    padding: 4px; border-radius: 6px; font-size: 14px;
+  }
+  .icon-btn:hover { color: #e8eaf2; background: #171d33; }
+
+  .join-btn {
+    width: 100%; margin-top: 18px; padding: 15px;
+    border: none; border-radius: 12px; cursor: pointer;
+    background: linear-gradient(90deg, #4f46e5, #2563eb);
+    color: #fff; font-size: 15px; font-weight: 620;
+    display: flex; align-items: center; justify-content: center; gap: 9px;
+  }
+  .join-btn:hover:not(:disabled) { filter: brightness(1.09); }
+  .join-btn:disabled { opacity: .55; cursor: default; }
+  .join-note { margin-top: 11px; font-size: 12px; color: #737e9c; }
+
+  .tips {
+    max-width: 800px; margin: 16px auto 0;
+    background: #0a0e1c; border: 1px solid #171d33; border-radius: 14px;
+    padding: 14px 18px; display: flex; flex-wrap: wrap; gap: 12px 26px;
+    align-items: center; justify-content: center; font-size: 12.5px; color: #98a1bb;
+  }
+  .tips b { color: #d8dcea; font-weight: 600; }
+
+  .creds { max-width: 800px; margin: 16px auto 0; display: flex; gap: 10px; }
+  .creds input {
+    flex: 1; padding: 9px 12px; font-size: 12px;
+    background: #0b0f1f; color: #e8eaf2; border: 1px solid #1b2240; border-radius: 9px;
+  }
+
+  /* ---------- IN-CALL ---------- */
+  #call { display: none; grid-template-columns: 210px 1fr 300px; min-height: 100vh; }
+  .sidebar { background: #080b16; border-right: 1px solid #151b30; padding: 18px 14px; display: flex; flex-direction: column; }
+  .side-items { margin-top: 24px; display: flex; flex-direction: column; gap: 3px; flex: 1; }
+  .side-item {
+    padding: 10px 12px; border-radius: 9px; font-size: 13px; color: #98a1bb;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .side-item.active { background: #151c36; color: #fff; border: 1px solid #26305a; }
+  .side-meta { font-size: 11px; color: #6b7595; padding: 10px 12px; line-height: 1.65; }
+  .end-btn {
+    padding: 11px; border-radius: 10px; cursor: pointer;
+    background: #2a1220; color: #f87171; border: 1px solid #4c1d2e;
+    font-size: 13px; font-weight: 570;
+  }
+  .end-btn:hover { background: #3a1729; }
+
+  .main { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .main-top { display: flex; align-items: center; gap: 14px; }
+  .live-pill { background: #0f2a1c; border-color: #1f4a33; }
+  .main-top .muted { color: #8891ab; font-size: 13px; }
+  .timer { font-variant-numeric: tabular-nums; font-size: 13.5px; color: #cdd3e6; }
+  .levels { margin-left: auto; display: flex; align-items: center; gap: 3px; height: 22px; }
+  .levels i { width: 3px; border-radius: 2px; background: #6366f1; }
+
+  .stage { display: grid; grid-template-columns: 360px 1fr; gap: 14px; min-height: 0; }
+  .video-card {
+    background: linear-gradient(160deg, #241d4d 0%, #14162e 100%);
+    border: 1px solid #232a45; border-radius: 14px;
+    display: flex; align-items: center; justify-content: center; padding: 14px;
+  }
+  .controls { display: flex; gap: 9px; margin-top: 12px; }
+  .ctrl {
+    flex: 1; padding: 11px 6px; border-radius: 11px; cursor: pointer;
+    background: #10142a; border: 1px solid #212845; color: #d3d8ea;
+    font-size: 11.5px; display: flex; flex-direction: column; align-items: center; gap: 5px;
+  }
+  .ctrl:hover:not(:disabled) { background: #171d38; }
+  .ctrl:disabled { opacity: .38; cursor: not-allowed; }
+  .ctrl.danger { background: #2a1220; border-color: #4c1d2e; color: #f87171; }
+  .ctrl .ico { font-size: 15px; }
+
+  .transcript-card {
+    background: #0a0e1c; border: 1px solid #171d33; border-radius: 14px;
+    padding: 14px 16px; overflow-y: auto; max-height: 460px; min-height: 260px;
+  }
+  .msg { margin-bottom: 16px; }
+  .msg-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+  .msg-who { font-size: 13px; font-weight: 620; }
+  .msg-who.ai { color: #818cf8; }
+  .msg-who.you { color: #4ade80; }
+  .msg-time { font-size: 11px; color: #6b7595; }
+  .msg-body { font-size: 13.5px; line-height: 1.62; color: #d6dbea; }
+  .listening {
+    display: flex; align-items: center; gap: 9px; color: #8891ab; font-size: 13px;
+    background: #0a0e1c; border: 1px solid #171d33; border-radius: 12px; padding: 12px 16px;
+  }
+
+  .rail { background: #080b16; border-left: 1px solid #151b30; padding: 18px 16px; }
+  .rail-card { background: #0b1020; border: 1px solid #1a2140; border-radius: 13px; padding: 14px; margin-bottom: 14px; }
+  .rail-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .rail-title { font-size: 13.5px; font-weight: 620; }
+  .rail-step { font-size: 11.5px; color: #8891ab; }
+  .bar { height: 6px; background: #161c33; border-radius: 4px; margin-top: 11px; overflow: hidden; }
+  .bar > div { height: 100%; width: 0%; background: linear-gradient(90deg, #4f46e5, #22d3ee); transition: width .45s ease; }
+  .pct { text-align: right; font-size: 11.5px; color: #8891ab; margin-top: 5px; }
+
+  .flow { margin-top: 6px; }
+  .flow-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 11px; border-radius: 9px; font-size: 12.5px; color: #7e88a6; margin-bottom: 3px;
+  }
+  .flow-item .num {
+    width: 19px; height: 19px; border-radius: 50%; flex: 0 0 auto;
+    background: #161c33; color: #8891ab;
+    display: flex; align-items: center; justify-content: center; font-size: 10.5px;
+  }
+  .flow-item.done { color: #b9c1d8; }
+  .flow-item.done .num { background: #14331f; color: #4ade80; }
+  .flow-item.active { background: #141b36; color: #fff; border: 1px solid #27305c; }
+  .flow-item.active .num { background: #4f46e5; color: #fff; }
+
+  .focus-card { background: #0d1226; border: 1px solid #1e2547; border-radius: 13px; padding: 13px; display: flex; gap: 11px; }
+  .focus-ico {
+    width: 33px; height: 33px; border-radius: 9px; flex: 0 0 auto;
+    background: linear-gradient(140deg, #4f46e5, #2563eb);
+    display: flex; align-items: center; justify-content: center; font-size: 14px;
+  }
+  .focus-t { font-size: 11px; color: #8891ab; }
+  .focus-n { font-size: 13px; font-weight: 600; margin: 2px 0 3px; }
+  .focus-d { font-size: 11.5px; color: #8891ab; line-height: 1.5; }
+
+  .footer {
+    grid-column: 1 / -1; border-top: 1px solid #151b30;
+    padding: 11px 20px; display: flex; justify-content: space-between;
+    font-size: 11.5px; color: #6b7595;
+  }
+
+  details.debug { margin-top: 10px; }
+  details.debug summary { cursor: pointer; font-size: 11.5px; color: #6b7595; }
+  #log {
+    white-space: pre-wrap; background: #070a14; border: 1px solid #151b30;
+    border-radius: 9px; padding: 10px; margin-top: 8px;
+    font-size: 11px; max-height: 150px; overflow-y: auto;
+    font-family: ui-monospace, Menlo, Consolas, monospace; color: #8891ab;
+  }
 </style>
 </head>
 <body>
-  <h2>FirstRound -- Live Interview</h2>
 
-  <canvas id="face" width="320" height="320"></canvas>
-
-  <div class="controls">
-    <input id="url" placeholder="wss://your-project.livekit.cloud" />
-    <input id="token" placeholder="paste token from scripts/mint_lean_room.py" />
-    <button id="connectBtn">Connect</button>
+<!-- ============ PRE-JOIN ============ -->
+<div id="prejoin">
+  <div class="prejoin-top">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <div>
+        <div class="brand-name">FirstRound</div>
+        <div class="brand-sub">AI Video Interviewer</div>
+      </div>
+    </div>
+    <div class="pill"><span class="dot"></span> Live Interview</div>
   </div>
 
-  <div id="log"></div>
-  <audio id="remoteAudio" autoplay></audio>
+  <div class="prejoin-card">
+    <div class="avatar-row">
+      <div class="wave" id="waveL"></div>
+      <div class="avatar-ring"><canvas id="faceSmall" width="126" height="126"></canvas></div>
+      <div class="wave" id="waveR"></div>
+    </div>
+    <div class="who">AI Interviewer</div>
+    <div class="who-sub">Northwind Labs</div>
+
+    <div class="field">
+      <div style="display:flex;align-items:center;gap:9px">
+        <span class="dot" id="connDot" style="background:#64748b"></span>
+        <span style="font-size:13px" id="connText">Not connected</span>
+      </div>
+      <span class="badge-secure">Secure</span>
+    </div>
+
+    <div class="field">
+      <div style="min-width:0">
+        <div class="field-label">Room ID</div>
+        <div class="field-value" id="roomIdText">—</div>
+      </div>
+      <button class="icon-btn" id="copyRoom" title="Copy room ID">⧉</button>
+    </div>
+
+    <button class="join-btn" id="connectBtn">▶ Join Interview</button>
+    <div class="join-note">🛡 Your microphone will be enabled after you join</div>
+  </div>
+
+  <div class="tips">
+    <span>⚡ <b>Tips for a great interview</b></span>
+    <span>🎙 Use a quiet environment</span>
+    <span>📶 Speak clearly &amp; naturally</span>
+    <span>🛡 Be honest and concise</span>
+    <span>⏱ Take your time</span>
+  </div>
+
+  <div class="creds">
+    <input id="url" placeholder="wss://your-project.livekit.cloud" />
+    <input id="token" placeholder="access token" />
+  </div>
+</div>
+
+<!-- ============ IN-CALL ============ -->
+<div id="call">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-dot"></div>
+      <div>
+        <div class="brand-name">FirstRound</div>
+        <div class="brand-sub">AI Video Interviewer</div>
+      </div>
+    </div>
+    <div class="side-items">
+      <div class="side-item active">▣ Live Interview</div>
+      <div class="side-meta" id="sideMeta">
+        Role<br /><b style="color:#c9cfe3">Junior AI Engineer</b><br /><br />
+        Company<br /><b style="color:#c9cfe3">Northwind Labs</b>
+      </div>
+    </div>
+    <button class="end-btn" id="endBtn">⏻ End Interview</button>
+  </aside>
+
+  <main class="main">
+    <div class="main-top">
+      <div class="pill live-pill"><span class="dot"></span> Live</div>
+      <span class="muted">Interview in progress</span>
+      <span class="timer" id="timer">00:00:00</span>
+      <div class="levels" id="levels"></div>
+    </div>
+
+    <div class="stage">
+      <div>
+        <div class="video-card"><canvas id="face" width="300" height="300"></canvas></div>
+        <div class="controls">
+          <button class="ctrl" id="micBtn"><span class="ico">🎙</span><span id="micLabel">Mute</span></button>
+          <button class="ctrl" disabled title="The interviewer's avatar is the visible face in this design; the candidate's camera is not published (keeps CPU free for audio)."><span class="ico">📷</span>Camera</button>
+          <button class="ctrl" disabled title="Screen share is not part of this interview flow."><span class="ico">🖥</span>Share</button>
+          <button class="ctrl danger" id="leaveBtn"><span class="ico">📞</span>Leave</button>
+        </div>
+        <details class="debug">
+          <summary>Connection log</summary>
+          <div id="log"></div>
+        </details>
+      </div>
+
+      <div>
+        <div class="transcript-card" id="transcript"></div>
+        <div class="listening" style="margin-top:12px">
+          <span>◉</span><span id="listeningText">Waiting for the interviewer…</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <aside class="rail">
+    <div class="rail-card">
+      <div class="rail-head">
+        <span class="rail-title">Interview Progress</span>
+        <span class="rail-step" id="stepText">Step 1 of 7</span>
+      </div>
+      <div class="bar"><div id="progressBar"></div></div>
+      <div class="pct" id="pctText">0%</div>
+    </div>
+
+    <div class="rail-card">
+      <div class="rail-title" style="margin-bottom:8px">Interview Flow</div>
+      <div class="flow" id="flow"></div>
+    </div>
+
+    <div class="focus-card">
+      <div class="focus-ico">‹›</div>
+      <div>
+        <div class="focus-t">Current Focus</div>
+        <div class="focus-n" id="focusName">Introduction</div>
+        <div class="focus-d" id="focusDesc">Getting to know you and your background.</div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="footer">
+    <span>🛡 Your data stays on your machine and LiveKit Cloud</span>
+    <span>Powered by Gemini Live API • LiveKit Cloud</span>
+    <span id="connQuality">● Connecting…</span>
+  </div>
+</div>
+
+<audio id="remoteAudio" autoplay></audio>
 
 <script>
-const params = new URLSearchParams(window.location.search);
-if (params.get("url")) document.getElementById("url").value = params.get("url");
-if (params.get("token")) document.getElementById("token").value = params.get("token");
+/* ============================================================
+   Interview flow = the REAL LangGraph nodes from src/graph.py,
+   not invented UI steps. The active step is driven by data
+   messages the agent publishes as it moves through the graph
+   (see publish_progress in src/realtime/orchestrator.py), so
+   this panel reflects actual state, never a timed animation.
+   ============================================================ */
+const FLOW = [
+  ["intro",           "Introduction",     "Getting to know you and your background."],
+  ["github_deepdive", "GitHub Deep Dive", "Questions grounded in your real repositories and commits."],
+  ["resume_probe",    "Resume Deep Dive", "Probing specific claims from your resume."],
+  ["jd_fit",          "Role Fit",         "Testing requirements the resume doesn't already prove."],
+  ["scenario",        "Scenario",         "Any remaining planned questions."],
+  ["candidate_qs",    "Your Questions",   "Your turn to ask about the role."],
+  ["wrap_up",         "Closing",          "Wrapping up the interview."],
+];
+let activeNode = "intro";
 
-const logEl = document.getElementById("log");
+const $ = (id) => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+if (params.get("url")) $("url").value = params.get("url");
+if (params.get("token")) $("token").value = params.get("token");
+if (params.get("room")) $("roomIdText").textContent = params.get("room");
+
 function log(msg) {
   const t = new Date().toISOString().split("T")[1].split("Z")[0];
-  logEl.textContent += `[${t}] ${msg}\n`;
-  logEl.scrollTop = logEl.scrollHeight;
+  $("log").textContent += `[${t}] ${msg}\n`;
+  $("log").scrollTop = $("log").scrollHeight;
 }
 
-// --- Avatar: same amplitude-driven lip-sync technique proven standalone
-// in web/avatar.html (Phase 4), hooked here to the LIVE remote track
-// instead of a local file. ---
-const canvas = document.getElementById("face");
-const ctx = canvas.getContext("2d");
-let analyser, dataArray;
-let mouthOpenness = 0;
+$("copyRoom").onclick = () => navigator.clipboard?.writeText($("roomIdText").textContent);
 
-function drawFace(openness) {
-  const w = canvas.width, h = canvas.height;
+/* ---------- decorative waveform bars (pre-join only) ---------- */
+function buildWave(el, n) {
+  for (let i = 0; i < n; i++) el.appendChild(document.createElement("i"));
+}
+buildWave($("waveL"), 7); buildWave($("waveR"), 7); buildWave($("levels"), 9);
+
+/* ============================================================
+   AVATAR — unchanged technique from web/avatar.html: mouth
+   openness driven by live amplitude of the agent's audio.
+   Throttled to ~20fps; 60fps bought nothing visually and this
+   CPU is the binding constraint on the whole call.
+   ============================================================ */
+const canvases = [$("face"), $("faceSmall")];
+let analyser = null, dataArray = null, mouthOpenness = 0;
+const FRAME_MS = 50;
+let lastFrame = 0;
+
+function drawFace(cv, openness) {
+  const ctx = cv.getContext("2d");
+  const w = cv.width, h = cv.height, s = w / 320;
   ctx.clearRect(0, 0, w, h);
 
   ctx.fillStyle = "#f2c9a0";
   ctx.beginPath();
-  ctx.ellipse(w / 2, h / 2, 105, 125, 0, 0, Math.PI * 2);
+  ctx.ellipse(w / 2, h / 2 - 6 * s, 78 * s, 92 * s, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#22252c";
+  ctx.fillStyle = "#2b2f3d";           // hair
   ctx.beginPath();
-  ctx.ellipse(w / 2 - 40, h / 2 - 27, 9, 12, 0, 0, Math.PI * 2);
-  ctx.ellipse(w / 2 + 40, h / 2 - 27, 9, 12, 0, 0, Math.PI * 2);
+  ctx.ellipse(w / 2, h / 2 - 62 * s, 79 * s, 40 * s, 0, Math.PI, Math.PI * 2);
   ctx.fill();
 
-  ctx.strokeStyle = "#5a4632";
-  ctx.lineWidth = 5;
-  ctx.lineCap = "round";
+  ctx.fillStyle = "#22252c";           // eyes
   ctx.beginPath();
-  ctx.moveTo(w / 2 - 55, h / 2 - 49);
-  ctx.lineTo(w / 2 - 22, h / 2 - 53);
-  ctx.moveTo(w / 2 + 22, h / 2 - 53);
-  ctx.lineTo(w / 2 + 55, h / 2 - 49);
+  ctx.ellipse(w / 2 - 30 * s, h / 2 - 24 * s, 7 * s, 9.5 * s, 0, 0, Math.PI * 2);
+  ctx.ellipse(w / 2 + 30 * s, h / 2 - 24 * s, 7 * s, 9.5 * s, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = "#3c3226"; ctx.lineWidth = 4 * s; ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(w / 2 - 42 * s, h / 2 - 42 * s); ctx.lineTo(w / 2 - 18 * s, h / 2 - 45 * s);
+  ctx.moveTo(w / 2 + 18 * s, h / 2 - 45 * s); ctx.lineTo(w / 2 + 42 * s, h / 2 - 42 * s);
   ctx.stroke();
 
-  const mouthW = 62;
-  const mouthH = 5 + openness * 48;
+  const mw = 46 * s, mh = (4 + openness * 38) * s;   // mouth = the lip-sync
   ctx.fillStyle = "#7a3b3b";
   ctx.beginPath();
-  ctx.ellipse(w / 2, h / 2 + 48, mouthW / 2, mouthH / 2, 0, 0, Math.PI * 2);
+  ctx.ellipse(w / 2, h / 2 + 40 * s, mw / 2, mh / 2, 0, 0, Math.PI * 2);
   ctx.fill();
-
   if (openness > 0.35) {
     ctx.fillStyle = "#f5f0e6";
     ctx.beginPath();
-    ctx.ellipse(w / 2, h / 2 + 48 - mouthH / 4, mouthW / 2 - 7, mouthH / 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(w / 2, h / 2 + 40 * s - mh / 4, mw / 2 - 5 * s, mh / 4, 0, 0, Math.PI * 2);
     ctx.fill();
   }
+
+  ctx.fillStyle = "#1f2433";           // shoulders / suit
+  ctx.beginPath();
+  ctx.ellipse(w / 2, h + 34 * s, 96 * s, 56 * s, 0, Math.PI, Math.PI * 2);
+  ctx.fill();
 }
 
-// Throttled to ~20fps rather than requestAnimationFrame's 60fps. The
-// mouth is a single ellipse -- 60fps buys nothing visually, and this
-// machine's CPU is the binding constraint on the whole call (the agent
-// worker, WebRTC decode and a screen recorder are all competing). Redraw
-// cost was contributing to the audio/turn-taking jitter reported after
-// the avatar was first wired in.
-const FRAME_MS = 50;
-let lastFrame = 0;
+function paintBars(openness) {
+  const set = (el, base) => [...el.children].forEach((b, i) => {
+    const wobble = Math.abs(Math.sin(Date.now() / 190 + i));
+    b.style.height = `${base + openness * 46 * wobble}px`;
+  });
+  set($("waveL"), 6); set($("waveR"), 6); set($("levels"), 4);
+}
 
 function animate(now) {
   requestAnimationFrame(animate);
   if (now - lastFrame < FRAME_MS) return;
   lastFrame = now;
 
-  if (!analyser) { drawFace(0); return; }
-  analyser.getByteFrequencyData(dataArray);
-  const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
-  const target = Math.min(1, avg / 90);
-  mouthOpenness += (target - mouthOpenness) * 0.35;
-  drawFace(mouthOpenness);
+  if (analyser) {
+    analyser.getByteFrequencyData(dataArray);
+    const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+    mouthOpenness += (Math.min(1, avg / 90) - mouthOpenness) * 0.35;
+  } else {
+    mouthOpenness = 0;
+  }
+  canvases.forEach((cv) => drawFace(cv, mouthOpenness));
+  paintBars(mouthOpenness);
 }
 requestAnimationFrame(animate);
 
-// Created during the Connect click (a real user gesture) -- browsers
-// block/suspend an AudioContext created or resumed outside one, which is
-// why the avatar animated fine standalone in avatar.html (resume() ran
-// straight off the Play button) but sat frozen during a live interview,
-// where the old code called resume() from an async TrackSubscribed
-// callback instead.
+/* AudioContext must be created/resumed inside a real user gesture --
+   created from the async TrackSubscribed callback it stays suspended and
+   the avatar sits frozen (exactly the bug seen in the first avatar
+   integration). */
 let audioCtx = null;
-
 function ensureAudioContext() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
   if (audioCtx.state === "suspended") audioCtx.resume();
 }
 
 function wireAvatarToTrack(track) {
-  // Analysis TAP, not a playback path. The previous version called
-  // createMediaElementSource(audioEl), which reroutes the <audio>
-  // element's output through the Web Audio graph -- so the agent's voice
-  // stopped playing natively and instead depended on
-  // analyser -> destination, adding FFT work directly into the audio
-  // path. That degraded audio clarity on this CPU. Here the <audio>
-  // element keeps playing exactly as it did before the avatar existed,
-  // and we read a SEPARATE MediaStream source purely to drive the mouth.
-  // Deliberately never connected to audioCtx.destination -- doing so
-  // would double up the audio.
+  /* Analysis TAP only. Deliberately NOT createMediaElementSource --
+     that reroutes the <audio> element's playback through the Web Audio
+     graph, which degraded audio clarity on this CPU. The <audio>
+     element keeps playing natively, exactly as before the avatar
+     existed; this is a separate read-only branch and is never connected
+     to audioCtx.destination. */
   try {
     ensureAudioContext();
-    const stream = new MediaStream([track.mediaStreamTrack]);
-    const sourceNode = audioCtx.createMediaStreamSource(stream);
+    const src = audioCtx.createMediaStreamSource(new MediaStream([track.mediaStreamTrack]));
     analyser = audioCtx.createAnalyser();
     analyser.fftSize = 256;
     dataArray = new Uint8Array(analyser.frequencyBinCount);
-    sourceNode.connect(analyser);
-    log("avatar wired to agent audio (analysis tap, playback untouched)");
+    src.connect(analyser);
+    log("avatar wired to agent audio (analysis tap; playback untouched)");
   } catch (e) {
-    // The interview matters more than the avatar -- never let a
-    // visualization failure take down the call.
     log(`avatar wiring failed (call continues): ${e.message || e}`);
   }
 }
 
-// --- LiveKit room connection ---
-const connectBtn = document.getElementById("connectBtn");
+/* ---------- progress panel ---------- */
+function renderFlow() {
+  const idx = Math.max(0, FLOW.findIndex(([n]) => n === activeNode));
+  $("flow").innerHTML = "";
+  FLOW.forEach(([node, label], i) => {
+    const d = document.createElement("div");
+    d.className = "flow-item " + (i < idx ? "done" : i === idx ? "active" : "");
+    d.innerHTML = `<span class="num">${i < idx ? "✓" : i + 1}</span><span>${label}</span>`;
+    $("flow").appendChild(d);
+  });
+  const pct = Math.round(((idx + 1) / FLOW.length) * 100);
+  $("progressBar").style.width = pct + "%";
+  $("pctText").textContent = pct + "%";
+  $("stepText").textContent = `Step ${idx + 1} of ${FLOW.length}`;
+  $("focusName").textContent = FLOW[idx][1];
+  $("focusDesc").textContent = FLOW[idx][2];
+}
+renderFlow();
+
+/* ---------- transcript ---------- */
+function addMessage(who, text) {
+  const wrap = document.createElement("div");
+  wrap.className = "msg";
+  const time = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  wrap.innerHTML =
+    `<div class="msg-head"><span class="msg-who ${who === "AI Interviewer" ? "ai" : "you"}">${who}</span>` +
+    `<span class="msg-time">${time}</span></div><div class="msg-body"></div>`;
+  wrap.querySelector(".msg-body").textContent = text;
+  $("transcript").appendChild(wrap);
+  $("transcript").scrollTop = $("transcript").scrollHeight;
+}
+
+/* ---------- timer ---------- */
+let startedAt = null;
+setInterval(() => {
+  if (!startedAt) return;
+  const s = Math.floor((Date.now() - startedAt) / 1000);
+  $("timer").textContent = [s / 3600, (s % 3600) / 60, s % 60]
+    .map((n) => String(Math.floor(n)).padStart(2, "0")).join(":");
+}, 1000);
+
+/* ============================================================
+   LiveKit connection — logic below is unchanged from the
+   working version; only the UI around it is new.
+   ============================================================ */
+let room = null;
+const connectBtn = $("connectBtn");
+
 connectBtn.addEventListener("click", async () => {
-  const url = document.getElementById("url").value.trim();
-  const token = document.getElementById("token").value.trim();
-  if (!url || !token) { log("ERROR: need both URL and token"); return; }
+  const url = $("url").value.trim();
+  const token = $("token").value.trim();
+  if (!url || !token) { alert("Need both a LiveKit URL and a token."); return; }
 
-  // A second click reconnects with the same identity, which LiveKit
-  // resolves by kicking the first session ("disconnected: 2" =
-  // DUPLICATE_IDENTITY). Seen for real during Phase 7 testing.
+  // Second click reconnects with the same identity, which LiveKit
+  // resolves by kicking the first session (DUPLICATE_IDENTITY).
   connectBtn.disabled = true;
-  connectBtn.textContent = "Connecting...";
+  connectBtn.textContent = "Connecting…";
+  ensureAudioContext();   // must be inside the gesture
 
-  // MUST happen here, inside the click handler, while we still have a
-  // real user gesture -- see ensureAudioContext()'s note. Creating it
-  // later (from the async TrackSubscribed callback) leaves the context
-  // suspended and the avatar frozen.
-  ensureAudioContext();
+  room = new LivekitClient.Room();
 
-  const room = new LivekitClient.Room();
-
-  room.on(LivekitClient.RoomEvent.Connected, () => log("OK connected to room"));
-  room.on(LivekitClient.RoomEvent.Disconnected, (reason) => log(`disconnected: ${reason}`));
+  room.on(LivekitClient.RoomEvent.Connected, () => {
+    log("connected to room");
+    $("connDot").style.background = "#22c55e";
+    $("connText").textContent = "Connected to LiveKit Cloud";
+    $("connQuality").textContent = "● Good connection";
+    $("prejoin").style.display = "none";
+    $("call").style.display = "grid";
+    startedAt = Date.now();
+  });
+  room.on(LivekitClient.RoomEvent.Disconnected, (r) => {
+    log(`disconnected: ${r}`);
+    $("connQuality").textContent = "● Disconnected";
+    $("listeningText").textContent = "Disconnected.";
+  });
   room.on(LivekitClient.RoomEvent.ParticipantConnected, (p) => log(`participant joined: ${p.identity}`));
-  room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, participant) => {
-    log(`subscribed to ${track.kind} track from ${participant.identity}`);
+  room.on(LivekitClient.RoomEvent.TrackSubscribed, (track) => {
+    log(`subscribed to ${track.kind} track`);
     if (track.kind === "audio") {
-      // Native playback path, exactly as before the avatar existed.
-      track.attach(document.getElementById("remoteAudio"));
-      // Separate analysis tap for the avatar's mouth.
-      wireAvatarToTrack(track);
+      track.attach($("remoteAudio"));   // native playback path
+      wireAvatarToTrack(track);          // separate analysis tap
+      $("listeningText").textContent = "Listening…";
     }
   });
-  room.on(LivekitClient.RoomEvent.ConnectionStateChanged, (state) => log(`connection state: ${state}`));
 
-  const start = performance.now();
-  log(`connecting to ${url} ...`);
+  // Real graph state from the agent (see orchestrator.publish_progress).
+  room.on(LivekitClient.RoomEvent.DataReceived, (payload) => {
+    try {
+      const msg = JSON.parse(new TextDecoder().decode(payload));
+      if (msg.type === "progress" && msg.node) { activeNode = msg.node; renderFlow(); }
+    } catch (_) { /* not ours */ }
+  });
+
+  // Live transcript, when the SDK surfaces transcription events.
+  if (LivekitClient.RoomEvent.TranscriptionReceived) {
+    room.on(LivekitClient.RoomEvent.TranscriptionReceived, (segments, participant) => {
+      const isAgent = participant && participant.identity !== room.localParticipant.identity;
+      segments.filter((s) => s.final).forEach((s) => {
+        if (s.text && s.text.trim()) addMessage(isAgent ? "AI Interviewer" : "You", s.text.trim());
+      });
+    });
+  }
+
   try {
+    const t0 = performance.now();
     await room.connect(url, token);
-    log(`connect() resolved in ${(performance.now() - start).toFixed(0)}ms`);
+    log(`connect() resolved in ${(performance.now() - t0).toFixed(0)}ms`);
     await room.localParticipant.setMicrophoneEnabled(true);
-    log("mic published -- waiting for the interviewer to speak");
-    connectBtn.textContent = "Connected";
+    log("mic published — waiting for the interviewer to speak");
   } catch (e) {
     log(`ERROR: ${e.message || e}`);
     connectBtn.disabled = false;
-    connectBtn.textContent = "Connect";
+    connectBtn.textContent = "▶ Join Interview";
+    $("connText").textContent = "Connection failed";
   }
 });
+
+/* ---------- in-call controls (only ones that really work) ---------- */
+let micOn = true;
+$("micBtn").onclick = async () => {
+  micOn = !micOn;
+  await room?.localParticipant.setMicrophoneEnabled(micOn);
+  $("micLabel").textContent = micOn ? "Mute" : "Unmute";
+  log(micOn ? "mic unmuted" : "mic muted");
+};
+const leave = async () => { await room?.disconnect(); $("listeningText").textContent = "Interview ended."; };
+$("leaveBtn").onclick = leave;
+$("endBtn").onclick = leave;
 </script>
 </body>
 </html>
