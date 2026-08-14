@@ -30,6 +30,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 from pathlib import Path
 
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
@@ -52,6 +53,12 @@ ANSWER_SETTLE_S = 4.0
 # silence timer, so a stuck "speaking" state can never wedge the
 # interview waiting forever.
 MAX_EXTRA_WAIT_S = 20.0
+
+# Grace period after the candidate stops speaking, before their answer is
+# considered complete. Transcription lags the audio, so text keeps
+# arriving after the voice stops; finalising the moment VAD goes quiet
+# truncates the tail of the answer.
+POST_SPEECH_GRACE_S = 3.0
 
 # Below this many words, a transcript is treated as a noise blip rather
 # than an answer, and the orchestrator keeps listening instead of
@@ -165,10 +172,17 @@ async def run_interview(
     # sentences, and a timer-only approach cut people off after their
     # first sentence. This lets the collector keep waiting while the
     # candidate is genuinely still speaking.
-    user_speaking = {"now": False}
+    # Tracks both "are they speaking right now" and "how long since they
+    # stopped". The instantaneous flag alone isn't enough: VAD flickers
+    # in and out between words and sentences, so a single check at the
+    # wrong instant reads as "finished" mid-answer.
+    voice = {"speaking": False, "stopped_at": 0.0}
 
     def on_user_state(ev) -> None:
-        user_speaking["now"] = ev.new_state == "speaking"
+        speaking = ev.new_state == "speaking"
+        if voice["speaking"] and not speaking:
+            voice["stopped_at"] = time.monotonic()
+        voice["speaking"] = speaking
 
     session.on("user_state_changed", on_user_state)
 
@@ -229,22 +243,31 @@ async def run_interview(
         until the candidate goes quiet for ANSWER_SETTLE_S.
         """
         parts = [await answer_queue.get()]
-        waited_while_speaking = 0.0
+        extra_waited = 0.0
         while True:
             try:
                 nxt = await asyncio.wait_for(answer_queue.get(), timeout=ANSWER_SETTLE_S)
                 parts.append(nxt)
-                waited_while_speaking = 0.0
+                extra_waited = 0.0
+                continue
             except asyncio.TimeoutError:
-                # Silence on the transcript stream isn't the same as the
-                # candidate being finished. If VAD still reports them
-                # speaking, keep waiting -- this is what stopped "Hi, my
-                # name is Manal" being submitted as a whole introduction
-                # while the rest of the sentence was still coming.
-                if user_speaking["now"] and waited_while_speaking < MAX_EXTRA_WAIT_S:
-                    waited_while_speaking += ANSWER_SETTLE_S
-                    continue
-                return " ".join(p.strip() for p in parts).strip()
+                pass
+
+            # No new transcript for ANSWER_SETTLE_S -- but that alone
+            # doesn't mean they're done. Two things can still be true:
+            #   1. VAD says they're speaking right now.
+            #   2. They stopped only a moment ago, and transcription runs
+            #      BEHIND the audio, so more text is probably still in
+            #      flight ("what I say is getting updated late").
+            # Hold the turn open for either, up to a hard ceiling.
+            still_going = voice["speaking"] or (
+                time.monotonic() - voice["stopped_at"] < POST_SPEECH_GRACE_S
+            )
+            if still_going and extra_waited < MAX_EXTRA_WAIT_S:
+                extra_waited += ANSWER_SETTLE_S
+                continue
+
+            return " ".join(p.strip() for p in parts).strip()
 
     async def next_candidate_answer(question_text: str) -> str:
         """Wait for a REAL answer.
